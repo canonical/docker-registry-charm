@@ -1,0 +1,32 @@
+options:
+  auth-token-issuer:
+    type: string
+    description: The name on the certificate that authentication tokens must me signed by.
+  auth-token-realm:
+    type: string
+    description: The location from which clients should fetch authentication tokens.
+  auth-token-root-certs:
+    type: string
+    description: The root certificate bundle for the authentication tokens.
+  auth-token-service:
+    type: string
+    description: The name of the server which authentication tokens will be addressed to.
+  storage-swift-authurl:
+    type: string
+    description: The URL of the keystone used to authenticate to swift.
+  storage-swift-container:
+    type: string
+    default: docker-registry
+    description: The name of the swift container that will hold the images.
+  storage-swift-password:
+    type: string
+    description: The password to use to access swift.
+  storage-swift-region:
+    type: string
+    description: The region containing the swift service.
+  storage-swift-tenant:
+    type: string
+    description: The tenant containing the swift service.
+  storage-swift-username:
+    type: string
+    description: The username to use to access swift.
