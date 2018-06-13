@@ -1,0 +1,8 @@
+#!/bin/sh
+
+set -eu
+
+juju-log 'Invoking charm-pre-install hooks'
+[ -d exec.d ] && ( for f in exec.d/*/charm-pre-install; do [ -x $f ] && /bin/sh -c "$f"; done )
+
+exec hooks/upgrade-charm
