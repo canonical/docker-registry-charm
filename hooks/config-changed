@@ -38,6 +38,15 @@ def config_changed():
     elif 'auth' in registry_config:
         del registry_config["auth"]
 
+    if charm_config.get("http-host"):
+        # Note the "http" section will always be present from the deb
+        # package configuration.
+        registry_config["http"]["host"] = charm_config["http-host"]
+
+    http_secret = hookenv.leader_get("http-secret")
+    if http_secret:
+        registry_config["http"]["secret"] = http_secret
+
     registry_config["log"] = {
         "level": charm_config["log-level"],
         "formatter": "json",
