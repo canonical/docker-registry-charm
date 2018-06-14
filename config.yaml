@@ -11,6 +11,10 @@ options:
   auth-token-service:
     type: string
     description: The name of the server which authentication tokens will be addressed to.
+  log-level:
+    type: string
+    default: info
+    description: Logging output level ('error', 'warn', 'info', or 'debug').
   storage-swift-authurl:
     type: string
     description: The URL of the keystone used to authenticate to swift.

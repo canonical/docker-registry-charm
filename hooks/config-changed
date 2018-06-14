@@ -38,6 +38,14 @@ def config_changed():
     elif 'auth' in registry_config:
         del registry_config["auth"]
 
+    registry_config["log"] = {
+        "level": charm_config["log-level"],
+        "formatter": "json",
+        "fields": {
+            "service": "registry",
+        },
+    }
+
     storage = {}
     if charm_config.get("storage-swift-authurl"):
         # https://docs.docker.com/registry/configuration/#storage
