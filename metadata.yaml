@@ -4,3 +4,6 @@ description: Service for storing and retrieving docker images.
 series:
  - xenial
  - bionic
+provides:
+  website:
+    interface: http

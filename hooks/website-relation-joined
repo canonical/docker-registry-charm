@@ -1,0 +1,35 @@
+#!/usr/bin/python3
+
+from charmhelpers.core import hookenv
+
+
+LISTEN_PORT = 5000
+
+
+def relation_joined():
+    hookenv.relation_set(port=LISTEN_PORT)
+
+    # This is set on the relation for compatibility with haproxy.
+    services_yaml = """
+- service_name: %(service)s
+  service_host: 0.0.0.0
+  service_port: 5000
+  service_options:
+   - mode http
+   - balance leastconn
+   - option httpchk GET / HTTP/1.0
+  servers:
+   - [%(unit)s, %(addr)s, %(port)s, 'check port %(port)s']
+""" % {
+        'addr': hookenv.unit_private_ip(),
+        'port': LISTEN_PORT,
+        'service': hookenv.service_name(),
+        'unit': hookenv.local_unit().replace('/', '-'),
+    }
+
+    hookenv.relation_set(services=services_yaml)
+
+
+if __name__ == '__main__':
+    hookenv.log('website-relation-joined')
+    relation_joined()
