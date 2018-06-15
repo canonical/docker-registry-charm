@@ -7,7 +7,8 @@ hooks/charmhelpers: charm-helpers.yaml
 .PHONY: lint
 lint:
 	flake8 hooks/config-changed \
-		hooks/website-relation-joined
+		hooks/website-relation-joined \
+		hooks/nrpe-relation-changed
 
 .PHONY: clean
 clean:
