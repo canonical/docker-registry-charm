@@ -66,6 +66,7 @@ def config_changed():
             "container": charm_config.get("storage-swift-container", ""),
             "tenant": charm_config.get("storage-swift-tenant", ""),
         }
+        storage["redirect"] = {"disable": True}
 
     if storage:
         registry_config["storage"] = storage
