@@ -1,0 +1,5 @@
+includes:
+- layer:basic
+- interface:./interfaces/http
+- interface:./interfaces/nrpe-external-master
+repo: https://github.com/CanonicalLtd/docker-registry-charm
