@@ -1,18 +1,14 @@
 .PHONY: build
-build: hooks/charmhelpers
-
-hooks/charmhelpers: charm-helpers.yaml
-	./charm_helpers_sync.py -c charm-helpers.yaml
+build:
+	charm build -o dist ./layer/docker-registry
 
 .PHONY: lint
 lint:
-	flake8 hooks/config-changed \
-		hooks/website-relation-joined \
-		hooks/nrpe-relation-changed
+	flake8 layer/docker-registry/reactive/docker-registry.py
 
 .PHONY: clean
 clean:
-	-rm -rf hooks/charmhelpers
+	-rm -rf dist
 
 .PHONY: check
 check: lint
