@@ -120,11 +120,11 @@ def setup_nagios(nagios):
     if config.get('nagios_servicegroups'):
         check_args['servicegroups'] = config['nagios_servicegroups']
     nagios.add_check(['/usr/lib/nagios/plugins/check_http',
-            '-I', '127.0.0.1', '-p', str(LISTEN_PORT),
-            '-e', " 200 OK", '-u', '/'],
-        name="check_http",
-        description="Verify docker-registry is responding",
-        **check_args)
+                      '-I', '127.0.0.1', '-p', str(LISTEN_PORT),
+                      '-e', " 200 OK", '-u', '/'],
+                     name="check_http",
+                     description="Verify docker-registry is responding",
+                     **check_args)
     nagios.added()
 
 
