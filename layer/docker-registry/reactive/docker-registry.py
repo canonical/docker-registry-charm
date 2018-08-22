@@ -1,7 +1,6 @@
 import base64
 import os
 import yaml
-from subprocess import check_call, check_output
 
 from charmhelpers.core import (
     hookenv,
@@ -15,25 +14,6 @@ from charms.leadership import leader_set, leader_get
 LISTEN_PORT = 5000
 CONFIG_FILE = '/etc/docker/registry/config.yml'
 ROOT_CERTIFICATES_FILE = '/etc/docker/registry/token.pem'
-
-
-@hook('install')
-def install():
-    upgrade()
-
-
-@hook('upgrade-charm')
-def upgrade():
-    check_call(['apt-get', 'install', '-y', '--no-install-recommends', 'python3-yaml'])
-    check_call(['apt-get', 'install', '-y', '--no-install-recommends', 'docker-registry'])
-    pkg_info = check_output(['dpkg', '-s', 'docker-registry'])
-    for ln in pkg_info.splitlines():
-        if ln.startswith(b'Version:'):
-            fields = ln.split()
-            if fields[1:]:
-                version = fields[1]
-                check_call(['application-version-set', version])
-                return
 
 
 @when('config.changed',
