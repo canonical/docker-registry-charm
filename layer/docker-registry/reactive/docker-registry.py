@@ -8,7 +8,8 @@ from charmhelpers.core import (
     host,
 )
 
-from charms.reactive import hook, when
+from charms.reactive import hook, when, when_not
+from charms.leadership import leader_set, leader_get
 
 
 LISTEN_PORT = 5000
@@ -35,7 +36,8 @@ def upgrade():
                 return
 
 
-@hook('config-changed')
+@when('config.changed',
+      'leadership.changed.http-secret')
 def config_changed():
     charm_config = hookenv.config()
     # The config file is created by the deb so will always exist.
@@ -67,7 +69,7 @@ def config_changed():
         # package configuration.
         registry_config["http"]["host"] = charm_config["http-host"]
 
-    http_secret = hookenv.leader_get("http-secret")
+    http_secret = leader_get("http-secret")
     if http_secret:
         registry_config["http"]["secret"] = http_secret
 
@@ -151,18 +153,8 @@ def remove_nrpe_external(nagios):
     nagios.removed()
 
 
+@when('leadership.is_leader')
+@when_not('leadership.set.http-secret')
 @hook('leader-elected')
-def leader_elected():
-    http_secret = check_output(['leader-get', 'http-secret'])
-    if not http_secret:
-        http_secret = generate_http_secret()
-        check_call(['leader-set', 'http-secret={}'.format(http_secret)])
-
-
-@hook('leader-settings-changed')
-def leader_settings_changed():
-    config_changed()
-
-
 def generate_http_secret():
-    return base64.b64encode(os.urandom(32)).decode('utf-8')
+    leader_set(base64.b64encode(os.urandom(32)).decode('utf-8'))
