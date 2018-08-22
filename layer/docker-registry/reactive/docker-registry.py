@@ -7,7 +7,7 @@ from charmhelpers.core import (
     host,
 )
 
-from charms.reactive import hook, when, when_not
+from charms.reactive import when, when_not
 from charms.leadership import leader_set, leader_get
 
 
@@ -135,6 +135,5 @@ def remove_nrpe_external(nagios):
 
 @when('leadership.is_leader')
 @when_not('leadership.set.http-secret')
-@hook('leader-elected')
 def generate_http_secret():
     leader_set(base64.b64encode(os.urandom(32)).decode('utf-8'))
