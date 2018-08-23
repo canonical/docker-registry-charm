@@ -1,14 +1,14 @@
 import base64
 import os
 import yaml
-from subprocess import check_call, check_output
 
 from charmhelpers.core import (
     hookenv,
     host,
 )
 
-from charms.reactive import hook, when
+from charms.reactive import set_flag, clear_flag, when, when_any, when_not
+from charms.leadership import leader_set, leader_get
 
 
 LISTEN_PORT = 5000
@@ -16,27 +16,15 @@ CONFIG_FILE = '/etc/docker/registry/config.yml'
 ROOT_CERTIFICATES_FILE = '/etc/docker/registry/token.pem'
 
 
-@hook('install')
-def install():
-    upgrade()
-
-
-@hook('upgrade-charm')
-def upgrade():
-    check_call(['apt-get', 'install', '-y', '--no-install-recommends', 'python3-yaml'])
-    check_call(['apt-get', 'install', '-y', '--no-install-recommends', 'docker-registry'])
-    pkg_info = check_output(['dpkg', '-s', 'docker-registry'])
-    for ln in pkg_info.splitlines():
-        if ln.startswith(b'Version:'):
-            fields = ln.split()
-            if fields[1:]:
-                version = fields[1]
-                check_call(['application-version-set', version])
-                return
-
-
-@hook('config-changed')
+@when_any('config.changed',
+          'leadership.changed.http-secret')
 def config_changed():
+    clear_flag('charm.docker-registry.started')  # force update & restart
+
+
+@when('apt.installed.docker-registry')
+@when_not('charm.docker-registry.started')
+def start_service():
     charm_config = hookenv.config()
     # The config file is created by the deb so will always exist.
     with open(CONFIG_FILE) as f:
@@ -67,7 +55,7 @@ def config_changed():
         # package configuration.
         registry_config["http"]["host"] = charm_config["http-host"]
 
-    http_secret = hookenv.leader_get("http-secret")
+    http_secret = leader_get("http-secret")
     if http_secret:
         registry_config["http"]["secret"] = http_secret
 
@@ -103,6 +91,7 @@ def config_changed():
 
     host.service_restart('docker-registry')
     hookenv.open_port(LISTEN_PORT)
+    set_flag('charm.docker-registry.started')
 
 
 @when('website.changed')
@@ -138,11 +127,11 @@ def setup_nagios(nagios):
     if config.get('nagios_servicegroups'):
         check_args['servicegroups'] = config['nagios_servicegroups']
     nagios.add_check(['/usr/lib/nagios/plugins/check_http',
-            '-I', '127.0.0.1', '-p', str(LISTEN_PORT),
-            '-e', " 200 OK", '-u', '/'],
-        name="check_http",
-        description="Verify docker-registry is responding",
-        **check_args)
+                      '-I', '127.0.0.1', '-p', str(LISTEN_PORT),
+                      '-e', " 200 OK", '-u', '/'],
+                     name="check_http",
+                     description="Verify docker-registry is responding",
+                     **check_args)
     nagios.added()
 
 
@@ -151,18 +140,7 @@ def remove_nrpe_external(nagios):
     nagios.removed()
 
 
-@hook('leader-elected')
-def leader_elected():
-    http_secret = check_output(['leader-get', 'http-secret'])
-    if not http_secret:
-        http_secret = generate_http_secret()
-        check_call(['leader-set', 'http-secret={}'.format(http_secret)])
-
-
-@hook('leader-settings-changed')
-def leader_settings_changed():
-    config_changed()
-
-
+@when('leadership.is_leader')
+@when_not('leadership.set.http-secret')
 def generate_http_secret():
-    return base64.b64encode(os.urandom(32)).decode('utf-8')
+    leader_set(base64.b64encode(os.urandom(32)).decode('utf-8'))

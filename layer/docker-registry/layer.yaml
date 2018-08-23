@@ -1,5 +1,13 @@
 includes:
 - layer:basic
+- layer:leadership
+- layer:apt
 - interface:./interfaces/http
 - interface:./interfaces/nrpe-external-master
 repo: https://github.com/CanonicalLtd/docker-registry-charm
+options:
+  apt:
+    packages:
+      - python3-yaml
+      - docker-registry
+    version_package: docker-registry
