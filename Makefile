@@ -1,14 +1,10 @@
 .PHONY: build
 build:
-	charm build -o dist ./layer/docker-registry
+	charm build --no-local-layers
 
 .PHONY: lint
 lint:
-	flake8 layer/docker-registry/reactive/docker-registry.py
-
-.PHONY: clean
-clean:
-	-rm -rf dist
+	flake8 reactive/docker-registry.py
 
 .PHONY: check
 check: lint
