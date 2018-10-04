@@ -6,12 +6,19 @@ from charmhelpers.core import (
     hookenv,
     host,
 )
-
-from charms.reactive import set_flag, clear_flag, when, when_any, when_not
+from charmhelpers.contrib.hahelpers import apache
+from charms.reactive import (
+    endpoint_from_flag,
+    set_flag,
+    clear_flag,
+    when,
+    when_any,
+    when_not,
+)
+from charms import layer
 from charms.leadership import leader_set, leader_get
 
 
-LISTEN_PORT = 5000
 CONFIG_FILE = '/etc/docker/registry/config.yml'
 ROOT_CERTIFICATES_FILE = '/etc/docker/registry/token.pem'
 
@@ -22,14 +29,14 @@ def config_changed():
     clear_flag('charm.docker-registry.started')  # force update & restart
 
 
-@when('apt.installed.docker-registry')
+@when('apt.installed.docker.io')
 @when_not('charm.docker-registry.started')
-def start_service():
+def start_registry():
+    layer.status.maint('Configuring the registry')
     charm_config = hookenv.config()
-    # The config file is created by the deb so will always exist.
-    with open(CONFIG_FILE) as f:
-        registry_config = yaml.safe_load(f)
+    registry_config = {}
 
+    # auth config
     auth = {}
     if charm_config.get("auth-token-realm"):
         # https://docs.docker.com/registry/configuration/#token
@@ -44,21 +51,19 @@ def start_service():
             charm_config.get("auth-token-root-certs", ""),
             perms=0o644,
         )
-
-    if auth:
         registry_config["auth"] = auth
-    elif 'auth' in registry_config:
-        del registry_config["auth"]
 
+    # http config
+    port = charm_config.get("port")
+    http = {"addr": "0.0.0.0:{}".format(port)}
     if charm_config.get("http-host"):
-        # Note the "http" section will always be present from the deb
-        # package configuration.
-        registry_config["http"]["host"] = charm_config["http-host"]
-
+        http["host"] = charm_config["http-host"]
     http_secret = leader_get("http-secret")
     if http_secret:
-        registry_config["http"]["secret"] = http_secret
+        http["secret"] = http_secret
+    registry_config["http"] = http
 
+    # log config
     registry_config["log"] = {
         "level": charm_config["log-level"],
         "formatter": "json",
@@ -67,6 +72,7 @@ def start_service():
         },
     }
 
+    # storage config
     storage = {}
     if charm_config.get("storage-swift-authurl"):
         # https://docs.docker.com/registry/configuration/#storage
@@ -79,28 +85,38 @@ def start_service():
             "tenant": charm_config.get("storage-swift-tenant", ""),
         }
         storage["redirect"] = {"disable": True}
-
-    if storage:
         registry_config["storage"] = storage
 
+    os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
     host.write_file(
         CONFIG_FILE,
         yaml.safe_dump(registry_config),
         perms=0o644,
     )
 
-    host.service_restart('docker-registry')
-    hookenv.open_port(LISTEN_PORT)
+    # config determines external port, but the container always listens to 5000 internally
+    from subprocess import check_call
+    cmd = ['docker', 'run', '-d', '-p', '{}:5000'.format(port), '--restart', 'always',
+           '--name', 'registry', 'registry:2']
+    check_call(cmd)
+
+    prev_port = charm_config.previous('port')
+    if prev_port:
+        hookenv.close_port(prev_port)
+    hookenv.open_port(port)
     set_flag('charm.docker-registry.started')
+    layer.status.active('Registry is active')
 
 
 @when('website.changed')
-def setup_website(website):
+def setup_website():
     # This is set on the relation for compatibility with haproxy.
+    website = endpoint_from_flag('website.changed')
+    port = hookenv.config().get('port')
     services_yaml = """
 - service_name: %(service)s
   service_host: 0.0.0.0
-  service_port: 5000
+  service_port: %(port)s
   service_options:
    - mode http
    - balance leastconn
@@ -109,17 +125,18 @@ def setup_website(website):
    - [%(unit)s, %(addr)s, %(port)s, 'check port %(port)s']
 """ % {
         'addr': hookenv.unit_private_ip(),
-        'port': LISTEN_PORT,
+        'port': port,
         'service': hookenv.service_name(),
         'unit': hookenv.local_unit().replace('/', '-'),
     }
-    website.configure(LISTEN_PORT, services=services_yaml)
+    website.configure(port, services=services_yaml)
 
 
 @when('nrpe-external-master.available')
-def setup_nagios(nagios):
+def setup_nagios():
     """Update the NRPE configuration for the given service."""
     hookenv.log("updating NRPE checks")
+    nagios = endpoint_from_flag('nrpe-external-master.available')
     config = hookenv.config()
     check_args = {}
     if config.get('nagios_context'):
@@ -127,7 +144,7 @@ def setup_nagios(nagios):
     if config.get('nagios_servicegroups'):
         check_args['servicegroups'] = config['nagios_servicegroups']
     nagios.add_check(['/usr/lib/nagios/plugins/check_http',
-                      '-I', '127.0.0.1', '-p', str(LISTEN_PORT),
+                      '-I', '127.0.0.1', '-p', str(config.get('port')),
                       '-e', " 200 OK", '-u', '/'],
                      name="check_http",
                      description="Verify docker-registry is responding",
@@ -136,11 +153,12 @@ def setup_nagios(nagios):
 
 
 @when('nrpe-external-master.removed')
-def remove_nrpe_external(nagios):
+def remove_nrpe_external():
+    nagios = endpoint_from_flag('nrpe-external-master.removed')
     nagios.removed()
 
 
 @when('leadership.is_leader')
 @when_not('leadership.set.http-secret')
 def generate_http_secret():
-    leader_set(base64.b64encode(os.urandom(32)).decode('utf-8'))
+    leader_set({'http-secret': base64.b64encode(os.urandom(32)).decode('utf-8')})
