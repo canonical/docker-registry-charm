@@ -108,6 +108,13 @@ def start_registry():
     layer.status.active('Registry is active')
 
 
+@when('cert-provider.ca.changed')
+def install_root_ca_cert():
+    cert_provider = endpoint_from_flag('cert-provider.ca.available')
+    apache.install_ca_cert(cert_provider.root_ca_cert)
+    clear_flag('cert-provider.ca.changed')
+
+
 @when('website.changed')
 def setup_website():
     # This is set on the relation for compatibility with haproxy.
