@@ -13,7 +13,7 @@ provides:
   nrpe-external-master:
     interface: nrpe-external-master
     scope: container
-  website:
+  proxy:
     interface: http
 requires:
   cert-provider:

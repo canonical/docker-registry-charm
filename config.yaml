@@ -27,12 +27,20 @@ options:
       registry will derive its location from the incoming requests.
   log-level:
     type: string
-    default: info
+    default: "info"
     description: Logging output level ('error', 'warn', 'info', or 'debug').
   port:
     type: int
     default: 5000
     description: The external port on which the docker registry listens.
+  registry-image:
+    type: string
+    default: "registry:2"
+    description: Registry image
+  registry-name:
+    type: string
+    default: "registry"
+    description: Name of the registry container
   storage-swift-authurl:
     type: string
     default: ""
