@@ -1,27 +1,31 @@
 import os
 import socket
+import subprocess
 import yaml
 
-from subprocess import check_call, check_output
 from urllib.parse import urlparse
 
-from charmhelpers.core import hookenv, host
+from charmhelpers.core import hookenv, host, unitdata
 from charms.leadership import leader_get
-
-TLS_CERT_PATH = '/etc/docker/registry/server.crt'
-TLS_KEY_PATH = '/etc/docker/registry/server.key'
 
 
 def configure_registry():
+    '''Recreate the docker registry config.yml.'''
     charm_config = hookenv.config()
-    registry_config = {}
+    registry_config = {'version': '0.1'}
     registry_config_file = '/etc/docker/registry/config.yml'
 
-    # auth config
+    # Some files need to be volume mounted in the container. Keep track of
+    # those (recreate each time we configure). Regardless of the src location,
+    # we explictly mount them in the container under /etc/docker/registry.
+    kv = unitdata.kv()
+    kv.unset('docker_volumes')
+    docker_volumes = {registry_config_file: '/etc/docker/registry/config.yml'}
+
+    # auth (https://docs.docker.com/registry/configuration/#token)
     auth = {}
     if charm_config.get('auth-token-realm'):
-        auth_token_bundle = '/etc/docker/registry/token.pem'
-        # https://docs.docker.com/registry/configuration/#token
+        auth_token_bundle = '/etc/docker/registry/auth_token.pem'
         auth['token'] = {
             'realm': charm_config.get('auth-token-realm', ''),
             'service': charm_config.get('auth-token-service', ''),
@@ -34,36 +38,56 @@ def configure_registry():
             charm_config.get('auth-token-root-certs', ''),
             perms=0o644,
         )
+        docker_volumes[auth_token_bundle] = '/etc/docker/registry/auth_token.pem'
         registry_config['auth'] = auth
 
-    # http config
+    # http (https://docs.docker.com/registry/configuration/#http)
     port = charm_config.get('port')
-    http = {'addr': '0.0.0.0:{}'.format(port)}
+    http = {'addr': '0.0.0.0:{}'.format(port),
+            'headers': {'X-Content-Type-Options': ['nosniff']}}
     if charm_config.get('http-host'):
         http['host'] = charm_config['http-host']
     http_secret = leader_get('http-secret')
     if http_secret:
         http['secret'] = http_secret
-    if os.path.isfile(TLS_CERT_PATH) and os.path.isfile(TLS_KEY_PATH):
+    tls_cert = charm_config.get('tls-cert-path', '')
+    tls_chain = charm_config.get('tls-chain-path', '')
+    tls_key = charm_config.get('tls-key-path', '')
+    if os.path.isfile(tls_cert) and os.path.isfile(tls_key):
         http['tls'] = {
-            'certificate': TLS_CERT_PATH,
-            'key': TLS_KEY_PATH,
+            'certificate': tls_cert,
+            'key': tls_key,
         }
+        docker_volumes[tls_cert] = '/etc/docker/registry/registry.crt'
+        docker_volumes[tls_key] = '/etc/docker/registry/registry.key'
+
+        if os.path.isfile(tls_chain):
+            http['tls']['clientcas'] = [tls_chain]
+            docker_volumes[tls_chain] = '/etc/docker/registry/chain.pem'
     registry_config['http'] = http
 
-    # log config
+    # log (https://docs.docker.com/registry/configuration/#log)
     registry_config['log'] = {
         'level': charm_config['log-level'],
         'formatter': 'json',
         'fields': {
             'service': 'registry',
-        },
+        }
     }
 
-    # storage config
+    # health (https://docs.docker.com/registry/configuration/#health)
+    registry_config['health'] = {
+        'storagedriver': {
+            'enabled': True,
+            'interval': '10s',
+            'threshold': 3,
+        }
+    }
+
+    # storage (https://docs.docker.com/registry/configuration/#storage)
+    # we must have 1 (and only 1) storage driver
     storage = {}
     if charm_config.get('storage-swift-authurl'):
-        # https://docs.docker.com/registry/configuration/#storage
         storage['swift'] = {
             'authurl': charm_config.get('storage-swift-authurl', ''),
             'username': charm_config.get('storage-swift-username', ''),
@@ -73,7 +97,10 @@ def configure_registry():
             'tenant': charm_config.get('storage-swift-tenant', ''),
         }
         storage['redirect'] = {'disable': True}
-        registry_config['storage'] = storage
+    else:
+        storage['filesystem'] = {'rootdirectory': '/var/lib/registry'}
+        storage['cache'] = {'blobdescriptor': 'inmemory'}
+    registry_config['storage'] = storage
 
     os.makedirs(os.path.dirname(registry_config_file), exist_ok=True)
     host.write_file(
@@ -81,6 +108,11 @@ def configure_registry():
         yaml.safe_dump(registry_config),
         perms=0o644,
     )
+
+    # NB: all hooks will flush, but do an explicit one now in case we call
+    # something that needs this data before our hook ends.
+    kv.set('docker_volumes', docker_volumes)
+    kv.flush(True)
 
 
 def get_tls_sans(relation_name=None):
@@ -109,11 +141,13 @@ def get_tls_sans(relation_name=None):
     return sorted(sans)
 
 
-def start_registry():
+def start_registry(run_args=None):
     '''Start a registry container.
 
-    On intial invocation, create and run a new named registry container.
-    Subsequent calls will start the existing named container.
+    If the named registry container doesn't exist, create and start a new
+    container. Subsequent calls will start the existing named container.
+
+    :param run_args: list of additional args to pass to docker run
     '''
     image = hookenv.config('registry-image')
     name = hookenv.config('registry-name')
@@ -121,38 +155,85 @@ def start_registry():
 
     cmd = ['docker', 'container', 'list', '--all',
            '--filter', 'name={}'.format(name), '--format', '{{.Names}}']
-    if name in check_output(cmd).decode('utf8'):
+    try:
+        containers = subprocess.check_output(cmd).decode('utf8')
+    except subprocess.CalledProcessError as e:
+        hookenv.log('Could not list existing containers: {}'.format(e),
+                    level=hookenv.WARNING)
+        containers = ''
+
+    if name in containers:
         # start existing container
         cmd = ['docker', 'container', 'start', name]
-        check_call(cmd)
+        try:
+            subprocess.check_call(cmd)
+        except subprocess.CalledProcessError:
+            hookenv.log('Could not start existing container: {}'.format(name),
+                        level=hookenv.ERROR)
+            raise
     else:
-        # config determines external port, but the container always listens to 5000 internally
-        cmd = ['docker', 'run', '-d', '-p', '{}:5000'.format(port),
-               '--restart', 'unless-stopped', '--name', name, image]
-        check_call(cmd)
+        # NB: config determines the port, but the container always listens to 5000 internally
+        cmd = ['docker', 'run', '-d', '-p', '{}:5000'.format(port), '--restart', 'unless-stopped']
+        if run_args:
+            cmd.extend(run_args)
+        # Add our docker volume mounts
+        volumes = unitdata.kv().get(key='docker_volumes', default={})
+        for src, dest in volumes.items():
+            cmd.extend(['-v', '{}:{}'.format(src, dest)])
+        cmd.extend(['--name', name, image])
+        try:
+            subprocess.check_call(cmd)
+        except subprocess.CalledProcessError:
+            hookenv.log('Could not create new container: {}'.format(name),
+                        level=hookenv.ERROR)
+            raise
 
     hookenv.open_port(port)
 
 
-def stop_registry(remove=False):
-    '''Stop a registry:2 container.
+def stop_registry(remove=True):
+    '''Stop a registry container.
 
     Stop and optionally remove the named registry container.
-    :param remove: if true, remove the container after stopping
+
+    :param remove: True removes the container after stopping
     '''
     name = hookenv.config('registry-name')
-    cmd = ['docker', 'container', 'stop', name]
-    check_call(cmd)
-    if remove:
-        cmd = ['docker', 'container', 'rm', '-v', name]
-        check_call(cmd)
-
     port = hookenv.config('port')
+
+    cmd = ['docker', 'container', 'stop', name]
+    try:
+        subprocess.check_call(cmd)
+    except subprocess.CalledProcessError:
+        hookenv.log('Could not stop container: {}'.format(name),
+                    level=hookenv.ERROR)
+        raise
+
+    if remove:
+        cmd = ['docker', 'container', 'rm', '--volumes', name]
+        try:
+            subprocess.check_call(cmd)
+        except subprocess.CalledProcessError:
+            hookenv.log('Could not remove container: {}'.format(name),
+                        level=hookenv.ERROR)
+            raise
+
     hookenv.close_port(port)
 
 
 def write_tls(cert, key):
-    '''Write TLS cert data to the filesystem.'''
-    os.makedirs(os.path.dirname(TLS_CERT_PATH), exist_ok=True)
-    host.write_file(TLS_CERT_PATH, cert, perms=0o644)
-    host.write_file(TLS_KEY_PATH, key, perms=0o600)
+    '''Write TLS cert data to the filesystem.
+
+    :return: True if cert and key files were written; False otherwise
+    '''
+    tls_cert = hookenv.config('tls-cert-path')
+    tls_key = hookenv.config('tls-key-path')
+
+    if tls_cert and tls_key:
+        os.makedirs(os.path.dirname(tls_cert), exist_ok=True)
+        os.makedirs(os.path.dirname(tls_key), exist_ok=True)
+        host.write_file(tls_cert, cert, perms=0o644)
+        host.write_file(tls_key, key, perms=0o600)
+        return True
+    else:
+        return False

@@ -1,22 +1,110 @@
-Docker Registry
-===============
+# Introduction
 
-The docker-registry provides storage and distribution of docker images.
-See https://docs.docker.com/registry/ for details.
+This charm provides storage and distribution of docker images. See
+https://docs.docker.com/registry/ for details.
 
-Build
------
-Requires charm tools to be installed. Then build the charm with:
+## Deployment
 
-    make build
+The registry is deployed as a stand alone application and supports integration
+with clients that implement the [docker-registry][interface] interface.
 
-Deploy
-------
+[interface]: https://github.com/juju-solutions/interface-docker-registry
 
-    juju deploy ./dist/builds/docker-registry
+### Standalone Registry
 
-Charm supports reverse-proxying with haproxy and monitoring with nagios:
+For testing purposes, a simple, insecure registry can be deployed with:
 
-    juju add-relation docker-registry haproxy
-    juju add-relation docker-registry nrpe-external-master
+```bash
+juju deploy ~containers/docker-registry
+```
 
+### Secure Registry with TLS
+
+This charm supports TLS via the `tls-certificates` relation. This can
+be enabled by deploying and relating to a TLS provider, such as `easyrsa`:
+
+```bash
+juju deploy ~containers/docker-registry
+juju deploy easyrsa
+
+juju relate easyrsa docker-registry
+```
+
+### Proxied Registry
+
+This charm supports an `http` proxy relation that allows operators to
+control how the registry is exposed on the network. This is achieved by
+relating to a proxy provider, such as `haproxy`:
+
+```bash
+juju deploy ~containers/docker-registry
+juju deploy haproxy
+
+juju relate haproxy docker-registry
+juju expose haproxy
+```
+
+### Integration with Kubernetes
+
+See the Kubernetes private docker registry wiki for details.
+
+### Nagios Monitoring
+
+This charm supports monitoring with nagios:
+
+```bash
+juju deploy ~containers/docker-registry
+juju deploy nrpe-external-master
+
+juju add-relation docker-registry nrpe-external-master
+```
+
+## Hosting Images
+
+To make an image available in your private docker registry, you must tag and
+push it. This charm provides an action that will do this:
+
+```bash
+juju run-action --wait docker-registry push \
+  image=<image> pull=<True|False> tag=<optional-tag-name>
+```
+
+By default, this action will tag/push a local image so it is available from
+your registry. If you specify `pull=True`, the action will first pull the
+given `image` and subsequently tag/push it.
+
+The default image tag is 'https://[private-ip|http-host]/name:version'. This
+can be overriden by specifying the `tag` action paramenter.
+
+## Configuration
+
+### Using Basic Authentication
+
+Basic auth support can be enabled by setting charm configuration options:
+
+```bash
+juju config docker-registry \
+  auth-token-issuer=<name> \
+  auth-token-realm=<location> \
+  auth-token-root-certs=<cert-bundle> \
+  auth-token-service=<server>
+```
+
+>Note: If any of the auth config options are set, they must all be set.
+
+### Swift Storage
+
+The charm supports Swift configuration options that can be used to store
+images in a Swift backend:
+
+```bash
+juju config docker-registry \
+  storage-swift-authurl=<url> \
+  storage-swift-container=<container> \
+  storage-swift-password=<pass> \
+  storage-swift-region=<region> \
+  storage-swift-tenant=<tenant> \
+  storage-swift-username=<user>
+```
+
+>Note: If any of the swift config options are set, they must all be set.

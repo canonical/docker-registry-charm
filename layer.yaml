@@ -4,6 +4,7 @@ includes:
 - layer:apt
 - layer:nagios
 - layer:status
+- interface:docker-registry
 - interface:http
 - interface:tls-certificates
 repo: https://github.com/CanonicalLtd/docker-registry-charm

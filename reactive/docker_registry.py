@@ -28,7 +28,7 @@ def config_changed():
     layer.docker_registry.configure_registry()
     layer.docker_registry.start_registry()
 
-    layer.status.active('Registry is active')
+    layer.status.active('Active.')
 
 
 @when('apt.installed.docker.io')
@@ -40,11 +40,12 @@ def start():
     layer.docker_registry.start_registry()
 
     set_flag('charm.docker-registry.started')
-    layer.status.active('Registry is active')
+    layer.status.active('Active (insecure).')
 
 
 @when('cert-provider.ca.changed')
 def install_root_ca_cert():
+    '''Install the provider CA into the default system location.'''
     cert_provider = endpoint_from_flag('cert-provider.ca.available')
     host.install_ca_cert(cert_provider.root_ca_cert)
     clear_flag('cert-provider.ca.changed')
@@ -52,6 +53,7 @@ def install_root_ca_cert():
 
 @when('cert-provider.available')
 def request_certificates():
+    '''Request a new cert/key initally, and any time our SANs change.'''
     cert_provider = endpoint_from_flag('cert-provider.available')
 
     # set the public ip of this unit as the Common Name for the cert
@@ -66,26 +68,36 @@ def request_certificates():
 
     # if our alt names have changed, request a new cert
     if data_changed('tls_sans', sans):
+        hookenv.log('Requesting new cert for CN: {} with SANs: {})'.format(cert_cn, sans))
         cert_provider.request_server_cert(cert_cn, sans, cert_name)
 
 
 @when('cert-provider.certs.changed')
 @when('charm.docker-registry.started')
 def update_certs():
+    '''Write cert data to our configured location.'''
     cert_provider = endpoint_from_flag('cert-provider.available')
-    server_cert = cert_provider.server_certs[0]  # only requested one
-    layer.docker_registry.write_tls(server_cert.cert, server_cert.key)
-    config_changed()
-    clear_flag('cert-provider.certs.changed')
+    cert = cert_provider.server_certs[0]  # only requested one
+
+    if layer.docker_registry.write_tls(cert.cert, cert.key):
+        layer.docker_registry.stop_registry()
+        layer.docker_registry.configure_registry()
+        layer.docker_registry.start_registry()
+
+        layer.status.active('Active (with TLS).')
+        clear_flag('cert-provider.certs.changed')
+    else:
+        layer.status.maint('Could not write TLS data. Retrying.')
 
 
-@when('proxy.available')
-def setup_website():
-    # This is set on the relation for compatibility with haproxy.
-    website = endpoint_from_flag('proxy.available')
+@when('website.available')
+def update_reverseproxy_config():
+    website = endpoint_from_flag('website.available')
     port = hookenv.config().get('port')
+    website.configure(port=port)
+
     services_yaml = """
-- service_name: %(service)s
+- service_name: %(app)s
   service_host: 0.0.0.0
   service_port: %(port)s
   service_options:
@@ -97,10 +109,11 @@ def setup_website():
 """ % {
         'addr': hookenv.unit_private_ip(),
         'port': port,
-        'service': hookenv.service_name(),
+        'app': hookenv.application_name(),
         'unit': hookenv.local_unit().replace('/', '-'),
     }
-    website.configure(port, services=services_yaml)
+    for rel in website.relations:
+        rel.to_publish_raw.update({'all_services': services_yaml})
 
 
 @when('nrpe-external-master.available')
