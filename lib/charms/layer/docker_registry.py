@@ -226,8 +226,9 @@ def write_tls(cert, key):
 
     :return: True if cert and key files were written; False otherwise
     '''
-    tls_cert = hookenv.config('tls-cert-path')
-    tls_key = hookenv.config('tls-key-path')
+    charm_config = hookenv.config()
+    tls_cert = charm_config.get('tls-cert-path')
+    tls_key = charm_config.get('tls-key-path')
 
     if tls_cert and tls_key:
         os.makedirs(os.path.dirname(tls_cert), exist_ok=True)
@@ -237,3 +238,14 @@ def write_tls(cert, key):
         return True
     else:
         return False
+
+
+def remove_tls():
+    '''Remove TLS cert data from the filesystem.'''
+    charm_config = hookenv.config()
+    tls_cert = charm_config.get('tls-cert-path', '')
+    tls_key = charm_config.get('tls-key-path', '')
+    if os.path.isfile(tls_cert):
+        os.remove(tls_cert)
+    if os.path.isfile(tls_key):
+        os.remove(tls_key)

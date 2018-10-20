@@ -25,7 +25,7 @@ be enabled by deploying and relating to a TLS provider, such as `easyrsa`:
 
 ```bash
 juju deploy ~containers/docker-registry
-juju deploy easyrsa
+juju deploy ~containers/easyrsa
 
 juju relate easyrsa docker-registry
 ```
@@ -54,9 +54,9 @@ This charm supports monitoring with nagios:
 
 ```bash
 juju deploy ~containers/docker-registry
-juju deploy nrpe-external-master
+juju deploy nrpe --series bionic
 
-juju add-relation docker-registry nrpe-external-master
+juju relate docker-registry nrpe
 ```
 
 ## Hosting Images
@@ -73,8 +73,9 @@ By default, this action will tag/push a local image so it is available from
 your registry. If you specify `pull=True`, the action will first pull the
 given `image` and subsequently tag/push it.
 
-The default image tag is 'https://[private-ip|http-host]/name:version'. This
-can be overriden by specifying the `tag` action paramenter.
+The default image tag is 'net_loc/name:version', where 'net_loc' is the
+`http-host` config option or http[s]://[private-ip]:[port] if config is not
+set. The image tag can be overriden by specifying the `tag` action paramenter.
 
 ## Configuration
 

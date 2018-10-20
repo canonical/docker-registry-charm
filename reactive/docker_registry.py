@@ -9,6 +9,7 @@ from charms.reactive import (
     endpoint_from_flag,
     set_flag,
     clear_flag,
+    is_flag_set,
     when,
     when_any,
     when_not,
@@ -43,6 +44,41 @@ def start():
     layer.status.active('Active (insecure).')
 
 
+@when('charm.docker-registry.started')
+@when('endpoint.docker-registry.requests-pending')
+def handle_requests():
+    '''Set all the registry config that clients may care about.'''
+    registry = endpoint_from_flag('endpoint.docker-registry.requests-pending')
+    charm_config = hookenv.config()
+    port = charm_config.get('port')
+    http_config = charm_config.get('http_config', '')
+
+    # tls config
+    url_prefix = 'http'
+    tls_enabled = False
+    tls_ca = None
+    if is_flag_set('charm.docker-registry.tls-enabled'):
+        url_prefix = 'https'
+        tls_enabled = True
+        cert_provider = endpoint_from_flag('cert-provider.ca.available')
+        if cert_provider:
+            tls_ca = cert_provider.root_ca_cert
+
+    # http config
+    if http_config and not http_config == "":
+        # When set, this config is our source of truth for the registry url
+        registry_url = http_config
+    else:
+        registry_url = '{}://{}:{}'.format(url_prefix, hookenv.unit_public_ip(), port)
+
+    for request in registry.requests:
+        hookenv.log('Sending {} and tls config to registry client.'.format(registry_url))
+        request.set_registry_config(registry_url=registry_url,
+                                    tls_enabled=tls_enabled,
+                                    tls_ca=tls_ca)
+    registry.mark_completed()
+
+
 @when('cert-provider.ca.changed')
 def install_root_ca_cert():
     '''Install the provider CA into the default system location.'''
@@ -72,24 +108,41 @@ def request_certificates():
         cert_provider.request_server_cert(cert_cn, sans, cert_name)
 
 
-@when('cert-provider.certs.changed')
 @when('charm.docker-registry.started')
+@when('cert-provider.certs.changed')
 def update_certs():
     '''Write cert data to our configured location.'''
     cert_provider = endpoint_from_flag('cert-provider.available')
     cert = cert_provider.server_certs[0]  # only requested one
 
     if layer.docker_registry.write_tls(cert.cert, cert.key):
+        # Only configure/restart if cert data was written.
         layer.docker_registry.stop_registry()
         layer.docker_registry.configure_registry()
         layer.docker_registry.start_registry()
 
         layer.status.active('Active (with TLS).')
+        set_flag('charm.docker-registry.tls-enabled')
         clear_flag('cert-provider.certs.changed')
     else:
         layer.status.maint('Could not write TLS data. Retrying.')
+        clear_flag('charm.docker-registry.tls-enabled')
 
 
+@when('charm.docker-registry.started')
+@when('charm.docker-registry.tls-enabled')
+@when_not('cert-provider.available')
+def remove_certs():
+    '''Remove cert data from our configured paths when a tls provider is gone.'''
+    # Remove cert data prior to reconfiguring/starting.
+    layer.docker_registry.stop_registry()
+    layer.docker_registry.remove_tls()
+    layer.docker_registry.configure_registry()
+    layer.docker_registry.start_registry()
+    clear_flag('charm.docker-registry.tls-enabled')
+
+
+@when('charm.docker-registry.started')
 @when('website.available')
 def update_reverseproxy_config():
     website = endpoint_from_flag('website.available')
@@ -116,6 +169,7 @@ def update_reverseproxy_config():
         rel.to_publish_raw.update({'all_services': services_yaml})
 
 
+@when('charm.docker-registry.started')
 @when('nrpe-external-master.available')
 def setup_nagios():
     """Update the NRPE configuration for the given service."""
