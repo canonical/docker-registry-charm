@@ -191,15 +191,18 @@ def start_registry(run_args=None):
     hookenv.open_port(port)
 
 
-def stop_registry(remove=True):
+def stop_registry(name=None, remove=True):
     '''Stop a registry container.
 
-    Stop and optionally remove the named registry container.
+    Stop and optionally remove the named registry container. If a name is not
+    specified, this method will stop the configured 'registry-name' container.
 
+    :param name: Name of the container to stop
     :param remove: True removes the container after stopping
     '''
-    name = hookenv.config('registry-name')
     port = hookenv.config('port')
+    if not name:
+        name = hookenv.config('registry-name')
 
     cmd = ['docker', 'container', 'stop', name]
     try:
