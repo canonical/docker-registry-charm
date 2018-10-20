@@ -1,0 +1,40 @@
+push:
+  description: |
+    Tag and push an image to this repository.
+  params:
+    image:
+      type: string
+      default: ''
+      description: |
+        Image name, which may include an optional :version string. If the
+        version is omitted, docker will assume ':latest'. This may be an
+        unqualified local image (e.g. pause-amd64:3.1) or a fully qualified
+        remote URL (e.g. https://k8s.gcr.io/pause-amd64:3.1).
+    pull:
+      type: boolean
+      default: true
+      description: Pull the given image before tag/push.
+    tag:
+      type: string
+      default: ''
+      description: |
+        Tag name to use. By default, images are tagged with
+        'net_location/name:version'.
+  required: [image]
+  additionalProperties: false
+stop:
+  description: |
+    Stop a named docker container.
+  params:
+    name:
+      type: string
+      default: ''
+      description: |
+        Name of the container to stop. If not specified, the action will
+        attempt to stop the configured 'registry-name' container.
+    remove:
+      type: boolean
+      default: true
+      description: |
+        Remove the named container after stopping.
+  additionalProperties: false

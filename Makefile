@@ -4,4 +4,4 @@ build:
 
 .PHONY: lint
 lint:
-	flake8 reactive/docker-registry.py
+	flake8 actions/* reactive/*

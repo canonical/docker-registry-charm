@@ -1,0 +1,27 @@
+#!/usr/local/sbin/charm-env python3
+
+import sys
+from subprocess import CalledProcessError
+
+from charmhelpers.core import hookenv
+from charms.reactive import is_flag_set
+from charms.layer.docker_registry import stop_registry
+
+
+def fail(msg):
+    hookenv.action_fail(msg)
+    sys.exit()
+
+
+if not is_flag_set('apt.installed.docker.io'):
+    fail('Docker is not yet ready.')
+
+name = hookenv.action_get('name')
+remove = hookenv.action_get('remove')
+
+try:
+    stop_registry(name=name, remove=remove)
+except CalledProcessError:
+    fail('Failed to stop container.')
+else:
+    hookenv.action_set({'outcome': 'success'})
