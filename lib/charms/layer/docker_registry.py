@@ -42,7 +42,7 @@ def configure_registry():
         registry_config['auth'] = auth
 
     # http (https://docs.docker.com/registry/configuration/#http)
-    port = charm_config.get('port')
+    port = charm_config.get('registry-port')
     http = {'addr': '0.0.0.0:{}'.format(port),
             'headers': {'X-Content-Type-Options': ['nosniff']}}
     if charm_config.get('http-host'):
@@ -151,7 +151,7 @@ def start_registry(run_args=None):
     '''
     image = hookenv.config('registry-image')
     name = hookenv.config('registry-name')
-    port = hookenv.config('port')
+    port = hookenv.config('registry-port')
 
     cmd = ['docker', 'container', 'list', '--all',
            '--filter', 'name={}'.format(name), '--format', '{{.Names}}']
@@ -200,7 +200,7 @@ def stop_registry(name=None, remove=True):
     :param name: Name of the container to stop
     :param remove: True removes the container after stopping
     '''
-    port = hookenv.config('port')
+    port = hookenv.config('registry-port')
     if not name:
         name = hookenv.config('registry-name')
 

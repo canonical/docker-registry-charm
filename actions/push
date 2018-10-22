@@ -31,7 +31,7 @@ tag = hookenv.action_get('tag')
 if not tag:
     # construct a tag
     charm_config = hookenv.config()
-    port = charm_config.get('port')
+    port = charm_config.get('registy-port')
     http_config = charm_config.get('http_config', '')
 
     if http_config and not http_config == "":

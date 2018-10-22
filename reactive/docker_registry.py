@@ -53,8 +53,14 @@ def start():
           'leadership.changed.http-secret')
 def config_changed():
     layer.status.maint('Reconfiguring the registry.')
+    charm_config = hookenv.config()
+    name = charm_config.get('registry-name')
 
-    layer.docker_registry.stop_registry()
+    # If our name changed, make sure we stop the old one
+    if charm_config.changed('registry-name') and charm_config.previous('registry-name'):
+        name = charm_config.previous('registry-name')
+
+    layer.docker_registry.stop_registry(name=name)
     layer.docker_registry.configure_registry()
     layer.docker_registry.start_registry()
 
@@ -67,7 +73,7 @@ def handle_requests():
     '''Set all the registry config that clients may care about.'''
     registry = endpoint_from_flag('endpoint.docker-registry.requests-pending')
     charm_config = hookenv.config()
-    port = charm_config.get('port')
+    port = charm_config.get('registry-port')
     http_config = charm_config.get('http_config', '')
 
     # tls config
@@ -164,7 +170,7 @@ def remove_certs():
 @when('website.available')
 def update_reverseproxy_config():
     website = endpoint_from_flag('website.available')
-    port = hookenv.config().get('port')
+    port = hookenv.config().get('registry-port')
     website.configure(port=port)
 
     services_yaml = """
@@ -190,17 +196,18 @@ def update_reverseproxy_config():
 @when('charm.docker-registry.started')
 @when('nrpe-external-master.available')
 def setup_nagios():
-    """Update the NRPE configuration for the given service."""
+    '''Update the NRPE configuration for the given service.'''
     hookenv.log("updating NRPE checks")
     nagios = endpoint_from_flag('nrpe-external-master.available')
-    config = hookenv.config()
+    charm_config = hookenv.config()
+
     check_args = {}
-    if config.get('nagios_context'):
-        check_args['context'] = config['nagios_context']
-    if config.get('nagios_servicegroups'):
-        check_args['servicegroups'] = config['nagios_servicegroups']
+    if charm_config.get('nagios_context'):
+        check_args['context'] = charm_config['nagios_context']
+    if charm_config.get('nagios_servicegroups'):
+        check_args['servicegroups'] = charm_config['nagios_servicegroups']
     nagios.add_check(['/usr/lib/nagios/plugins/check_http',
-                      '-I', '127.0.0.1', '-p', str(config.get('port')),
+                      '-I', '127.0.0.1', '-p', str(charm_config.get('registry-port')),
                       '-e', " 200 OK", '-u', '/'],
                      name="check_http",
                      description="Verify docker-registry is responding",

@@ -29,10 +29,6 @@ options:
     type: string
     default: "info"
     description: Logging output level ('error', 'warn', 'info', or 'debug').
-  port:
-    type: int
-    default: 5000
-    description: The external port on which the docker registry listens.
   registry-image:
     type: string
     default: "registry:2"
@@ -41,6 +37,10 @@ options:
     type: string
     default: "registry"
     description: Name of the registry container
+  registry-port:
+    type: int
+    default: 5000
+    description: The external port on which the docker registry listens.
   storage-swift-authurl:
     type: string
     default: ""
