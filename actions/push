@@ -12,8 +12,8 @@ def fail(msg):
     sys.exit()
 
 
-if not is_flag_set('charm.docker-registry.started'):
-    fail('Docker Registry is not yet ready.')
+if not is_flag_set('charm.docker-registry.configured'):
+    fail('Docker Registry charm is not yet ready.')
 
 image = hookenv.action_get('image')
 if not image:
@@ -31,7 +31,7 @@ tag = hookenv.action_get('tag')
 if not tag:
     # construct a tag
     charm_config = hookenv.config()
-    port = charm_config.get('registy-port')
+    port = charm_config.get('registry-port')
     http_config = charm_config.get('http_config', '')
 
     if http_config and not http_config == "":

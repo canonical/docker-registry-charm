@@ -22,6 +22,17 @@ push:
         'net_location/name:version'.
   required: [image]
   additionalProperties: false
+start:
+  description: |
+    Start a named docker container.
+  params:
+    name:
+      type: string
+      default: ''
+      description: |
+        Name of the container to start. If not specified, the action will
+        attempt to start the configured 'registry-name' container.
+  additionalProperties: false
 stop:
   description: |
     Stop a named docker container.
