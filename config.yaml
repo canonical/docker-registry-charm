@@ -66,14 +66,14 @@ options:
     type: string
     default: ""
     description: The username to use to access swift.
+  tls-ca-path:
+    type: string
+    default: "/etc/docker/registry/ca.crt"
+    description: Path to the TLS CA certificate.
   tls-cert-path:
     type: string
     default: "/etc/docker/registry/registry.crt"
     description: Path to the TLS certificate.
-  tls-chain-path:
-    type: string
-    default: ""
-    description: Path to the TLS certificate chain (if needed).
   tls-key-path:
     type: string
     default: "/etc/docker/registry/registry.key"

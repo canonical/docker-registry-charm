@@ -50,8 +50,8 @@ def configure_registry():
     http_secret = leader_get('http-secret')
     if http_secret:
         http['secret'] = http_secret
+    tls_ca = charm_config.get('tls-ca-path', '')
     tls_cert = charm_config.get('tls-cert-path', '')
-    tls_chain = charm_config.get('tls-chain-path', '')
     tls_key = charm_config.get('tls-key-path', '')
     if os.path.isfile(tls_cert) and os.path.isfile(tls_key):
         http['tls'] = {
@@ -61,9 +61,9 @@ def configure_registry():
         docker_volumes[tls_cert] = '/etc/docker/registry/registry.crt'
         docker_volumes[tls_key] = '/etc/docker/registry/registry.key'
 
-        if os.path.isfile(tls_chain):
-            http['tls']['clientcas'] = [tls_chain]
-            docker_volumes[tls_chain] = '/etc/docker/registry/chain.pem'
+        if os.path.isfile(tls_ca):
+            http['tls']['clientcas'] = [tls_ca]
+            docker_volumes[tls_ca] = '/etc/docker/registry/ca.crt'
     registry_config['http'] = http
 
     # log (https://docs.docker.com/registry/configuration/#log)
@@ -230,19 +230,26 @@ def stop_registry(name=None, remove=True):
     hookenv.close_port(port)
 
 
-def write_tls(cert, key):
-    '''Write TLS cert data to the filesystem.
+def write_tls(ca, cert, key):
+    '''Write TLS data to the filesystem.
 
-    :return: True if cert and key files were written; False otherwise
+    :return: True if ca, cert, and key were written; False otherwise
     '''
     charm_config = hookenv.config()
+    tls_ca = charm_config.get('tls-ca-path')
     tls_cert = charm_config.get('tls-cert-path')
     tls_key = charm_config.get('tls-key-path')
 
-    if tls_cert and tls_key:
+    # NB: we may have to deal with operators that configure these options
+    # individually; don't try to write anything until they're all present.
+    if tls_ca and tls_cert and tls_key:
+        os.makedirs(os.path.dirname(tls_ca), exist_ok=True)
+        host.write_file(tls_ca, ca, perms=0o644)
+
         os.makedirs(os.path.dirname(tls_cert), exist_ok=True)
-        os.makedirs(os.path.dirname(tls_key), exist_ok=True)
         host.write_file(tls_cert, cert, perms=0o644)
+
+        os.makedirs(os.path.dirname(tls_key), exist_ok=True)
         host.write_file(tls_key, key, perms=0o600)
         return True
     else:
@@ -252,8 +259,11 @@ def write_tls(cert, key):
 def remove_tls():
     '''Remove TLS cert data from the filesystem.'''
     charm_config = hookenv.config()
+    tls_ca = charm_config.get('tls-ca-path', '')
     tls_cert = charm_config.get('tls-cert-path', '')
     tls_key = charm_config.get('tls-key-path', '')
+    if os.path.isfile(tls_ca):
+        os.remove(tls_ca)
     if os.path.isfile(tls_cert):
         os.remove(tls_cert)
     if os.path.isfile(tls_key):

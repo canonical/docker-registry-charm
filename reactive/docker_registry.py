@@ -102,20 +102,14 @@ def handle_requests():
     registry.mark_completed()
 
 
-@when('cert-provider.ca.changed')
-def install_root_ca_cert():
-    '''Install the provider CA into the default system location.'''
-    cert_provider = endpoint_from_flag('cert-provider.ca.available')
-    host.install_ca_cert(cert_provider.root_ca_cert)
-    clear_flag('cert-provider.ca.changed')
-
-
 @when('cert-provider.available')
 def request_certificates():
     '''Request a new cert/key initally, and any time our SANs change.'''
     cert_provider = endpoint_from_flag('cert-provider.available')
 
-    # set the public ip of this unit as the Common Name for the cert
+    # Set the public ip of this unit as the Common Name for the cert.
+    # NB: Any 'http-host' config will be added to the SANs list; we
+    # want to ensure we always have a consistent CN regardless of config.
     cert_cn = hookenv.unit_public_ip()
 
     # Create a path safe name by removing path characters from the unit name.
@@ -132,21 +126,22 @@ def request_certificates():
 
 
 @when('charm.docker-registry.configured')
-@when('cert-provider.certs.changed')
-def update_certs():
+@when('cert-provider.server.certs.changed')
+def write_certs():
     '''Write cert data to our configured location.'''
-    cert_provider = endpoint_from_flag('cert-provider.available')
+    cert_provider = endpoint_from_flag('cert-provider.server.certs.changed')
+    ca = cert_provider.root_ca_cert
     cert = cert_provider.server_certs[0]  # only requested one
 
-    layer.status.maint('Reconfiguring the registry with TLS.')
-    if layer.docker_registry.write_tls(cert.cert, cert.key):
+    layer.status.maint('Reconfiguring registry with TLS.')
+    if layer.docker_registry.write_tls(ca, cert.cert, cert.key):
         # Only configure/restart if cert data was written.
         layer.docker_registry.stop_registry()
         layer.docker_registry.configure_registry()
         layer.docker_registry.start_registry()
 
+        clear_flag('cert-provider.server.certs.changed')
         set_flag('charm.docker-registry.tls-enabled')
-        clear_flag('cert-provider.certs.changed')
         report_active_status()
     else:
         layer.status.maint('Could not write TLS data. Retrying.')
