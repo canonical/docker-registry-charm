@@ -37,18 +37,18 @@ def report_active_status():
 
 
 @when('apt.installed.docker.io')
-@when_not('charm.docker-registry.started')
+@when_not('charm.docker-registry.configured')
 def start():
     layer.status.maint('Configuring the registry.')
 
     layer.docker_registry.configure_registry()
     layer.docker_registry.start_registry()
 
-    set_flag('charm.docker-registry.started')
+    set_flag('charm.docker-registry.configured')
     report_active_status()
 
 
-@when('charm.docker-registry.started')
+@when('charm.docker-registry.configured')
 @when_any('config.changed',
           'leadership.changed.http-secret')
 def config_changed():
@@ -67,7 +67,7 @@ def config_changed():
     report_active_status()
 
 
-@when('charm.docker-registry.started')
+@when('charm.docker-registry.configured')
 @when('endpoint.docker-registry.requests-pending')
 def handle_requests():
     '''Set all the registry config that clients may care about.'''
@@ -131,7 +131,7 @@ def request_certificates():
         cert_provider.request_server_cert(cert_cn, sans, cert_name)
 
 
-@when('charm.docker-registry.started')
+@when('charm.docker-registry.configured')
 @when('cert-provider.certs.changed')
 def update_certs():
     '''Write cert data to our configured location.'''
@@ -153,7 +153,7 @@ def update_certs():
         clear_flag('charm.docker-registry.tls-enabled')
 
 
-@when('charm.docker-registry.started')
+@when('charm.docker-registry.configured')
 @when('charm.docker-registry.tls-enabled')
 @when_not('cert-provider.available')
 def remove_certs():
@@ -166,7 +166,7 @@ def remove_certs():
     clear_flag('charm.docker-registry.tls-enabled')
 
 
-@when('charm.docker-registry.started')
+@when('charm.docker-registry.configured')
 @when('website.available')
 def update_reverseproxy_config():
     website = endpoint_from_flag('website.available')
@@ -193,7 +193,7 @@ def update_reverseproxy_config():
         rel.to_publish_raw.update({'all_services': services_yaml})
 
 
-@when('charm.docker-registry.started')
+@when('charm.docker-registry.configured')
 @when('nrpe-external-master.available')
 def setup_nagios():
     '''Update the NRPE configuration for the given service.'''

@@ -141,17 +141,22 @@ def get_tls_sans(relation_name=None):
     return sorted(sans)
 
 
-def start_registry(run_args=None):
+def start_registry(name=None, run_args=None):
     '''Start a registry container.
 
     If the named registry container doesn't exist, create and start a new
-    container. Subsequent calls will start the existing named container.
+    container. Subsequent calls will start the existing named container. If a
+    name is not specified, this method will use the configured 'registry-name'
+    value.
 
+    :param name: Name of the container to start
     :param run_args: list of additional args to pass to docker run
     '''
-    image = hookenv.config('registry-image')
-    name = hookenv.config('registry-name')
-    port = hookenv.config('registry-port')
+    charm_config = hookenv.config()
+    image = charm_config.get('registry-image')
+    port = charm_config.get('registry-port')
+    if not name:
+        name = charm_config.get('registry-name')
 
     cmd = ['docker', 'container', 'list', '--all',
            '--filter', 'name={}'.format(name), '--format', '{{.Names}}']
@@ -200,9 +205,10 @@ def stop_registry(name=None, remove=True):
     :param name: Name of the container to stop
     :param remove: True removes the container after stopping
     '''
-    port = hookenv.config('registry-port')
+    charm_config = hookenv.config()
+    port = charm_config.get('registry-port')
     if not name:
-        name = hookenv.config('registry-name')
+        name = charm_config.get('registry-name')
 
     cmd = ['docker', 'container', 'stop', name]
     try:
