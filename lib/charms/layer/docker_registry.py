@@ -5,8 +5,10 @@ import yaml
 
 from urllib.parse import urlparse
 
-from charmhelpers.core import hookenv, host, unitdata
+from charmhelpers.core import hookenv, host, templating, unitdata
 from charms.leadership import leader_get
+from charms.reactive import is_flag_set
+from charms.reactive.helpers import any_file_changed
 
 
 def configure_registry():
@@ -114,23 +116,58 @@ def configure_registry():
     kv.set('docker_volumes', docker_volumes)
     kv.flush(True)
 
+    # Configure the system so our local 'docker' commands can interact
+    # with the registry.
+    _configure_local_client()
+
+
+def _configure_local_client():
+    '''Configure daemon.json and certs for the local docker client.'''
+    charm_config = hookenv.config()
+
+    # client needs to know if the registry is secure vs insecure
+    if is_flag_set('charm.docker-registry.tls-enabled'):
+        insecure_registry = ''
+
+        # if our ca changed, install it into the default sys location
+        # (docker client > 1.13 will use this)
+        tls_ca = charm_config.get('tls-ca-path', '')
+        if os.path.isfile(tls_ca) and any_file_changed([tls_ca]):
+            ca_content = None
+            with open(tls_ca, 'rb') as f:
+                ca_content = f.read()
+            if ca_content:
+                host.install_ca_cert(ca_content)
+    else:
+        if charm_config.get('http-host'):
+            netloc = urlparse(charm_config['http-host']).netloc
+        else:
+            netloc = '"{}:{}"'.format(hookenv.unit_private_ip(),
+                                      charm_config['registry-port'])
+        insecure_registry = netloc
+
+    templating.render('daemon.json', '/etc/docker/daemon.json',
+                      {'registries': insecure_registry})
+    host.service_restart('docker')
+
 
 def get_tls_sans(relation_name=None):
     '''Get all sans for our TLS certificate.
 
     Return all IP/DNS data that should included as alt names when we request
-    a TLS cert. This includes our ingress address, local DNS name, any
+    a TLS cert. This includes our public/private address, local DNS name, any
     configured hostname, and the address of any related proxy.
 
     :return: sorted list of sans
     '''
+    charm_config = hookenv.config()
     sans = [
+        hookenv.unit_private_ip(),
         hookenv.unit_public_ip(),
         socket.gethostname(),
     ]
-    http_config = hookenv.config('http-host')
-    if http_config and not http_config == "":
-        http_host = urlparse(http_config).hostname
+    if charm_config.get('http-host'):
+        http_host = urlparse(charm_config['http-host']).hostname
         sans.append(http_host)
 
     if relation_name:

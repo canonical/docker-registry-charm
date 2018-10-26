@@ -38,7 +38,7 @@ if not tag:
         # When set, this config is our source of truth for the registry url
         tag = http_config
     else:
-        tag = '{}:{}/{}'.format(hookenv.unit_public_ip(), port, image)
+        tag = '{}:{}/{}'.format(hookenv.unit_private_ip(), port, image)
 cmd = ['docker', 'tag', image, tag]
 try:
     subprocess.check_call(cmd)

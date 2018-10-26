@@ -1,10 +1,7 @@
 import base64
 import os
 
-from charmhelpers.core import (
-    hookenv,
-    host,
-)
+from charmhelpers.core import hookenv
 from charms.reactive import (
     endpoint_from_flag,
     set_flag,
@@ -107,10 +104,10 @@ def request_certificates():
     '''Request a new cert/key initally, and any time our SANs change.'''
     cert_provider = endpoint_from_flag('cert-provider.available')
 
-    # Set the public ip of this unit as the Common Name for the cert.
+    # Set the private ip of this unit as the Common Name for the cert.
     # NB: Any 'http-host' config will be added to the SANs list; we
     # want to ensure we always have a consistent CN regardless of config.
-    cert_cn = hookenv.unit_public_ip()
+    cert_cn = hookenv.unit_private_ip()
 
     # Create a path safe name by removing path characters from the unit name.
     cert_name = hookenv.local_unit().replace('/', '_')
@@ -134,14 +131,16 @@ def write_certs():
     cert = cert_provider.server_certs[0]  # only requested one
 
     layer.status.maint('Reconfiguring registry with TLS.')
+    # Only configure/restart if cert data was written.
     if layer.docker_registry.write_tls(ca, cert.cert, cert.key):
-        # Only configure/restart if cert data was written.
+        # NB: set the tls flag prior to calling configure
+        set_flag('charm.docker-registry.tls-enabled')
+
         layer.docker_registry.stop_registry()
         layer.docker_registry.configure_registry()
         layer.docker_registry.start_registry()
 
         clear_flag('cert-provider.server.certs.changed')
-        set_flag('charm.docker-registry.tls-enabled')
         report_active_status()
     else:
         layer.status.maint('Could not write TLS data. Retrying.')
