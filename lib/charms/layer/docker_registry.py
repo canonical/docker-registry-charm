@@ -3,6 +3,7 @@ import socket
 import subprocess
 import yaml
 
+from shutil import rmtree
 from urllib.parse import urlparse
 
 from charmhelpers.core import hookenv, host, templating, unitdata
@@ -19,7 +20,7 @@ def configure_registry():
 
     # Some files need to be volume mounted in the container. Keep track of
     # those (recreate each time we configure). Regardless of the src location,
-    # we explictly mount them in the container under /etc/docker/registry.
+    # we explicitly mount them in the container under /etc/docker/registry.
     kv = unitdata.kv()
     kv.unset('docker_volumes')
     docker_volumes = {registry_config_file: '/etc/docker/registry/config.yml'}
@@ -319,9 +320,16 @@ def remove_tls():
     tls_ca = charm_config.get('tls-ca-path', '')
     tls_cert = charm_config.get('tls-cert-path', '')
     tls_key = charm_config.get('tls-key-path', '')
+
+    # unlink our registry tls data
     if os.path.isfile(tls_ca):
         os.remove(tls_ca)
     if os.path.isfile(tls_cert):
         os.remove(tls_cert)
     if os.path.isfile(tls_key):
         os.remove(tls_key)
+
+    # unlink our client tls data
+    client_tls_dst = '/etc/docker/certs.d/{}'.format(_get_netloc())
+    if os.path.isdir(client_tls_dst):
+        rmtree(client_tls_dst)
