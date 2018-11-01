@@ -4,8 +4,14 @@ import sys
 from subprocess import CalledProcessError
 
 from charmhelpers.core import hookenv
+from charms import layer
 from charms.reactive import is_flag_set
-from charms.layer.docker_registry import start_registry
+
+layer.import_layer_libs()
+
+# start reactive and get our charm config
+hookenv._run_atstart()
+charm_config = hookenv.config()
 
 
 def fail(msg):
@@ -17,10 +23,12 @@ if not is_flag_set('charm.docker-registry.configured'):
     fail('Docker Registry charm is not yet ready.')
 
 name = hookenv.action_get('name')
+if not name:
+    name = charm_config.get('registry-name', None)
 
 try:
-    start_registry(name=name)
+    layer.docker_registry.start_registry(name=name)
 except CalledProcessError:
-    fail('Failed to start container.')
+    fail('Failed to start container: {}'.format(name))
 else:
     hookenv.action_set({'outcome': 'success'})

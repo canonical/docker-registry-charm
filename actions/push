@@ -6,6 +6,10 @@ import sys
 from charmhelpers.core import hookenv
 from charms.reactive import is_flag_set
 
+# start reactive and get our charm config
+hookenv._run_atstart()
+charm_config = hookenv.config()
+
 
 def fail(msg):
     hookenv.action_fail(msg)
@@ -19,6 +23,7 @@ image = hookenv.action_get('image')
 if not image:
     fail('Missing required image parameter.')
 
+# Pull
 pull = hookenv.action_get('pull')
 if pull:
     cmd = ['docker', 'pull', image]
@@ -27,10 +32,10 @@ if pull:
     except subprocess.CalledProcessError:
         fail('Could not pull image: {}'.format(image))
 
+# Tag
 tag = hookenv.action_get('tag')
 if not tag:
     # construct a tag
-    charm_config = hookenv.config()
     port = charm_config.get('registry-port')
     http_config = charm_config.get('http_config', '')
 
@@ -45,7 +50,7 @@ try:
 except subprocess.CalledProcessError:
     fail('Could not tag {} image with: {}'.format(image, tag))
 
-
+# Push
 cmd = ['docker', 'push', tag]
 try:
     subprocess.check_call(cmd)
