@@ -125,6 +125,8 @@ def request_certificates():
     if data_changed('tls_sans', sans):
         hookenv.log('Requesting new cert for CN: {} with SANs: {})'.format(cert_cn, sans))
         cert_provider.request_server_cert(cert_cn, sans, cert_name)
+    else:
+        hookenv.log('Not requesting new tls data; SANs did not change: {}'.format(sans))
 
 
 @when('charm.docker-registry.configured')
@@ -167,9 +169,12 @@ def remove_certs():
     # Remove cert data prior to reconfiguring/starting.
     layer.docker_registry.stop_registry()
     layer.docker_registry.remove_tls()
+
+    # NB: remove the tls flag prior to calling configure
+    clear_flag('charm.docker-registry.tls-enabled')
     layer.docker_registry.configure_registry()
     layer.docker_registry.start_registry()
-    clear_flag('charm.docker-registry.tls-enabled')
+    report_active_status()
 
 
 @when('charm.docker-registry.configured')

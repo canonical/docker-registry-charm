@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 from charmhelpers.core import hookenv, host, templating, unitdata
 from charms.leadership import leader_get
 from charms.reactive import is_flag_set
-from charms.reactive.helpers import any_file_changed
+from charms.reactive.helpers import any_file_changed, data_changed
 
 
 def configure_registry():
@@ -315,7 +315,7 @@ def write_tls(ca, cert, key):
 
 
 def remove_tls():
-    '''Remove TLS cert data from the filesystem.'''
+    '''Remove TLS cert data.'''
     charm_config = hookenv.config()
     tls_ca = charm_config.get('tls-ca-path', '')
     tls_cert = charm_config.get('tls-cert-path', '')
@@ -329,7 +329,11 @@ def remove_tls():
     if os.path.isfile(tls_key):
         os.remove(tls_key)
 
-    # unlink our client tls data
+    # unlink our local docker client tls data
     client_tls_dst = '/etc/docker/certs.d/{}'.format(_get_netloc())
     if os.path.isdir(client_tls_dst):
         rmtree(client_tls_dst)
+
+    # nullify our cached SANs; if a new tls relation is established, this
+    # cache needs to be recreated.
+    data_changed('tls_sans', None)
