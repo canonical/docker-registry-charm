@@ -125,7 +125,8 @@ def _configure_local_client():
     '''Configure daemon.json and certs for the local docker client.'''
     charm_config = hookenv.config()
 
-    # client needs to know if the registry is secure vs insecure
+    # client config depends on whether the registry is secure or insecure
+    netloc = _get_netloc()
     if is_flag_set('charm.docker-registry.tls-enabled'):
         insecure_registry = ''
 
@@ -138,17 +139,36 @@ def _configure_local_client():
                 ca_content = f.read()
             if ca_content:
                 host.install_ca_cert(ca_content)
+
+        # Put our certs where the docker client expects to find them
+        # NB: these are the same certs used to serve the registry.
+        tls_cert = charm_config.get('tls-cert-path', '')
+        tls_key = charm_config.get('tls-key-path', '')
+        if os.path.isfile(tls_cert) and os.path.isfile(tls_key):
+            client_tls_dst = '/etc/docker/certs.d/{}'.format(netloc)
+            os.makedirs(client_tls_dst, exist_ok=True)
+            os.symlink(tls_cert, '{}/client.cert'.format(client_tls_dst))
+            os.symlink(tls_key, '{}/client.key'.format(client_tls_dst))
+
     else:
-        if charm_config.get('http-host'):
-            netloc = urlparse(charm_config['http-host']).netloc
-        else:
-            netloc = '"{}:{}"'.format(hookenv.unit_private_ip(),
-                                      charm_config['registry-port'])
-        insecure_registry = netloc
+        insecure_registry = '"{}"'.format(netloc)
 
     templating.render('daemon.json', '/etc/docker/daemon.json',
                       {'registries': insecure_registry})
     host.service_restart('docker')
+
+
+def _get_netloc():
+    '''Get the network location (host:port) for this registry.'''
+    charm_config = hookenv.config()
+
+    if charm_config.get('http-host'):
+        netloc = urlparse(charm_config['http-host']).netloc
+    else:
+        netloc = '{}:{}'.format(hookenv.unit_private_ip(),
+                                charm_config['registry-port'])
+
+    return netloc
 
 
 def get_tls_sans(relation_name=None):
