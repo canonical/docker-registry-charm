@@ -1,0 +1,61 @@
+#!/usr/local/sbin/charm-env python3
+
+import subprocess
+import sys
+
+from charmhelpers.core import hookenv
+from charms.reactive import is_flag_set
+
+# start reactive and get our charm config
+hookenv._run_atstart()
+charm_config = hookenv.config()
+
+
+def fail(msg):
+    hookenv.action_fail(msg)
+    sys.exit()
+
+
+if not is_flag_set('charm.docker-registry.configured'):
+    fail('Docker Registry charm is not yet ready.')
+
+image = hookenv.action_get('image')
+if not image:
+    fail('Missing required image parameter.')
+
+# Pull
+pull = hookenv.action_get('pull')
+if pull:
+    cmd = ['docker', 'pull', image]
+    try:
+        subprocess.check_call(cmd)
+    except subprocess.CalledProcessError:
+        fail('Could not pull image: {}'.format(image))
+
+# Tag
+tag = hookenv.action_get('tag')
+if not tag:
+    # construct a tag
+    port = charm_config.get('registry-port')
+    http_config = charm_config.get('http_config', '')
+
+    if http_config and not http_config == "":
+        # When set, this config is our source of truth for the registry url
+        tag = http_config
+    else:
+        tag = '{}:{}/{}'.format(hookenv.unit_private_ip(), port, image)
+cmd = ['docker', 'tag', image, tag]
+try:
+    subprocess.check_call(cmd)
+except subprocess.CalledProcessError:
+    fail('Could not tag {} image with: {}'.format(image, tag))
+
+# Push
+cmd = ['docker', 'push', tag]
+try:
+    subprocess.check_call(cmd)
+except subprocess.CalledProcessError:
+    fail('Could not push image: {}'.format(tag))
+else:
+    hookenv.action_set({'raw': 'pushed {}'.format(tag)})
+    hookenv.action_set({'outcome': 'success'})

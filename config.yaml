@@ -27,24 +27,20 @@ options:
       registry will derive its location from the incoming requests.
   log-level:
     type: string
-    default: info
+    default: "info"
     description: Logging output level ('error', 'warn', 'info', or 'debug').
-  nagios_context:
-    default: "juju"
+  registry-image:
     type: string
-    description: |
-      Used by the nrpe subordinate charms.
-      A string that will be prepended to instance name to set the host name
-      in nagios. So for instance the hostname would be something like:
-         juju-myservice-0
-      If you're running multiple environments with the same services in them
-      this allows you to differentiate between them.
-  nagios_servicegroups:
-    default: ""
+    default: "registry:2"
+    description: Registry image
+  registry-name:
     type: string
-    description: |
-      A comma-separated list of nagios servicegroups.
-      If left empty, the nagios_context will be used as the servicegroup.
+    default: "registry"
+    description: Name of the registry container
+  registry-port:
+    type: int
+    default: 5000
+    description: The external port on which the docker registry listens.
   storage-swift-authurl:
     type: string
     default: ""
@@ -70,3 +66,15 @@ options:
     type: string
     default: ""
     description: The username to use to access swift.
+  tls-ca-path:
+    type: string
+    default: "/etc/docker/registry/ca.crt"
+    description: Path to the TLS CA certificate.
+  tls-cert-path:
+    type: string
+    default: "/etc/docker/registry/registry.crt"
+    description: Path to the TLS certificate.
+  tls-key-path:
+    type: string
+    default: "/etc/docker/registry/registry.key"
+    description: Path the the TLS certificate private key.

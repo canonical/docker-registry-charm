@@ -1,10 +1,7 @@
 .PHONY: build
 build:
-	charm build --no-local-layers
+	charm build --no-local-layers --report
 
 .PHONY: lint
 lint:
-	flake8 reactive/docker-registry.py
-
-.PHONY: check
-check: lint
+	flake8 actions/* reactive/*

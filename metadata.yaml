@@ -1,14 +1,20 @@
 name: docker-registry
-summary: The Docker toolset to pack, ship, store, and deliver content
-maintainer: JAAS Developers <jaas-dev@lists.launchpad.net>
-description: Service for storing and retrieving docker images.
+summary: Registry for docker images
+maintainer: Kevin Monroe <kevin.monroe@canonical.com>
+description: Service for hosting docker images
 series:
- - xenial
  - bionic
+ - xenial
 tags:
  - storage
 provides:
+  docker-registry:
+    interface: docker-registry
+  nrpe-external-master:
+    interface: nrpe-external-master
+    scope: container
   website:
     interface: http
-  nrpe:
-    interface: nrpe-external-master
+requires:
+  cert-provider:
+    interface: tls-certificates
