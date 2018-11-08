@@ -25,24 +25,17 @@ def configure_registry():
     kv.unset('docker_volumes')
     docker_volumes = {registry_config_file: '/etc/docker/registry/config.yml'}
 
-    # auth (https://docs.docker.com/registry/configuration/#token)
+    # auth (https://docs.docker.com/registry/configuration/#auth)
     auth = {}
-    if charm_config.get('auth-token-realm'):
-        auth_token_bundle = '/etc/docker/registry/auth_token.pem'
-        auth['token'] = {
-            'realm': charm_config.get('auth-token-realm', ''),
-            'service': charm_config.get('auth-token-service', ''),
-            'issuer': charm_config.get('auth-token-issuer', ''),
-            'rootcertbundle': auth_token_bundle,
-        }
-        os.makedirs(os.path.dirname(auth_token_bundle), exist_ok=True)
-        host.write_file(
-            auth_token_bundle,
-            charm_config.get('auth-token-root-certs', ''),
-            perms=0o644,
-        )
-        docker_volumes[auth_token_bundle] = '/etc/docker/registry/auth_token.pem'
-        registry_config['auth'] = auth
+    auth_basic = _get_auth_basic()
+    if auth_basic:
+        auth['htpasswd'] = auth_basic
+        docker_volumes[auth_basic['path']] = '/etc/docker/registry/htpasswd'
+    auth_token = _get_auth_token()
+    if auth_token:
+        auth['token'] = auth_token
+        docker_volumes[auth_basic['rootcertbundle']] = '/etc/docker/registry/auth_token.pem'
+    registry_config['auth'] = auth
 
     # http (https://docs.docker.com/registry/configuration/#http)
     port = charm_config.get('registry-port')
@@ -159,6 +152,84 @@ def _configure_local_client():
     host.service_restart('docker')
 
 
+def _get_auth_basic():
+    '''Process our basic auth configuration.
+
+    When required config is present (or changes), write an htpasswd file
+    and construct a valid auth dict. When config is missing, remove any
+    existing htpasswd file.
+
+    :return: dict of htpasswd auth data, or None
+    '''
+    charm_config = hookenv.config()
+    password = charm_config.get('auth-basic-password')
+    user = charm_config.get('auth-basic-user')
+
+    auth = {}
+    htpasswd_file = '/etc/docker/registry/htpasswd'
+    if user and password:
+        auth = {
+            'realm': hookenv.application_name(),
+            'path': htpasswd_file,
+        }
+        # Only write a new htpasswd if something changed
+        if data_changed('basic_auth', '{}:{}'.format(user, password)):
+            if _write_htpasswd(htpasswd_file, user, password):
+                msg = 'Wrote new {}; htpasswd auth is available'.format(
+                    htpasswd_file)
+            else:
+                msg = 'Failed to write {}; htpasswd auth is unavailable'.format(
+                    htpasswd_file)
+                _remove_if_exists(htpasswd_file)
+        else:
+            msg = 'htpasswd auth is available'
+    else:
+        msg = 'Missing config: htpasswd auth is unavailable'
+        _remove_if_exists(htpasswd_file)
+
+    hookenv.log(msg, level=hookenv.INFO)
+    return auth if os.path.isfile(htpasswd_file) else None
+
+
+def _get_auth_token():
+    '''Process our token auth configuration.
+
+    When required config is present (or changes), write necessary pem bundle
+    and construct a valid auth dict. When config is missing, remove any
+    previously written bundle.
+
+    :return: dict of token auth data, or None
+    '''
+    charm_config = hookenv.config()
+    issuer = charm_config.get('auth-token-issuer')
+    realm = charm_config.get('auth-token-realm')
+    root_certs = charm_config.get('auth-token-root-certs')
+    service = charm_config.get('auth-token-service')
+
+    auth = {}
+    cert_file = '/etc/docker/registry/auth_token.pem'
+    if all((issuer, realm, root_certs, service)):
+        auth = {
+            'issuer': issuer,
+            'realm': realm,
+            'rootcertbundle': cert_file,
+            'service': service,
+        }
+        # Only write a new cert bundle if root certs changed
+        if data_changed('token_auth', root_certs):
+            os.makedirs(os.path.dirname(cert_file), exist_ok=True)
+            host.write_file(cert_file, content=root_certs, perms=0o644)
+            msg = 'Wrote new {}; token auth is available'.format(cert_file)
+        else:
+            msg = 'Token auth is available'
+    else:
+        msg = 'Missing config: token auth is unavailable'
+        _remove_if_exists(cert_file)
+
+    hookenv.log(msg, level=hookenv.INFO)
+    return auth if os.path.isfile(cert_file) else None
+
+
 def _get_netloc():
     '''Get the network location (host:port) for this registry.'''
     charm_config = hookenv.config()
@@ -170,6 +241,27 @@ def _get_netloc():
                                 charm_config['registry-port'])
 
     return netloc
+
+
+def _remove_if_exists(path):
+    try:
+        os.remove(path)
+    except FileNotFoundError:
+        pass
+
+
+def _write_htpasswd(path, user, password):
+    '''Write an htpasswd file.
+
+    :return: True if htpasswd succeeds; False otherwise
+    '''
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    cmd = ['htpasswd', '-i', '-c', path, user]
+    execute = subprocess.Popen(cmd,
+                               stdin=subprocess.PIPE,
+                               stdout=subprocess.PIPE)
+    execute.communicate(input=password)
+    return execute.returncode == 0
 
 
 def get_tls_sans(relation_name=None):
@@ -321,13 +413,10 @@ def remove_tls():
     tls_cert = charm_config.get('tls-cert-path', '')
     tls_key = charm_config.get('tls-key-path', '')
 
-    # unlink our registry tls data
-    if os.path.isfile(tls_ca):
-        os.remove(tls_ca)
-    if os.path.isfile(tls_cert):
-        os.remove(tls_cert)
-    if os.path.isfile(tls_key):
-        os.remove(tls_key)
+    # unlink our registry tls files
+    _remove_if_exists(tls_ca)
+    _remove_if_exists(tls_cert)
+    _remove_if_exists(tls_key)
 
     # unlink our local docker client tls data
     client_tls_dst = '/etc/docker/certs.d/{}'.format(_get_netloc())
