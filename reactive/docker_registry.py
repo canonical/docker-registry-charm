@@ -209,7 +209,8 @@ def update_reverseproxy_config():
         'app': hookenv.application_name(),
         'unit': hookenv.local_unit().replace('/', '-'),
     }
-    website.set_remote({'all_services': services_yaml})
+    website.configure(port=port)
+    website.set_remote(all_services=services_yaml)
 
 
 @when('charm.docker-registry.configured')
