@@ -70,6 +70,13 @@ juju deploy nrpe --series bionic
 juju relate docker-registry nrpe
 ```
 
+### Kubernetes Integration
+
+See the [Private Docker Registry][k8s-wiki] wiki for details on integrating
+this charm with Kubernetes.
+
+[k8s-wiki]: https://github.com/juju-solutions/bundle-canonical-kubernetes/wiki/WIP:-Private-Docker-Registry
+
 ## Actions
 
 ### Hosting Images
@@ -88,7 +95,7 @@ given `image` and subsequently tag/push it.
 
 The default image tag is 'net_loc/name:version', where 'net_loc' is the
 `http-host` config option or http[s]://[private-ip]:[port] if config is not
-set. The image tag can be overriden by specifying the `tag` action paramenter.
+set. The image tag can be overriden by specifying the `tag` action parameter.
 
 ### Starting/Stoping
 
