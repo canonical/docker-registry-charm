@@ -20,7 +20,7 @@ options:
   auth-token-root-certs:
     type: string
     default: ""
-    description: The root certificate bundle for the authentication tokens.
+    description: The root certificate bundle (base64 encoded) for the authentication tokens.
   auth-token-service:
     type: string
     default: ""

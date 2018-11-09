@@ -1,3 +1,4 @@
+import base64
 import os
 import socket
 import subprocess
@@ -223,7 +224,8 @@ def _get_auth_token():
         # Only write a new cert bundle if root certs changed
         if data_changed('token_auth', root_certs):
             os.makedirs(os.path.dirname(cert_file), exist_ok=True)
-            host.write_file(cert_file, content=root_certs, perms=0o644)
+            decoded = base64.b64decode(root_certs).decode('utf8')
+            host.write_file(cert_file, content=decoded, perms=0o644)
             msg = 'Wrote new {}; token auth is available'.format(cert_file)
         else:
             msg = 'Token auth is available'
