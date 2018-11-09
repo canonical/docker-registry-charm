@@ -74,31 +74,42 @@ def handle_requests():
     '''Set all the registry config that clients may care about.'''
     registry = endpoint_from_flag('endpoint.docker-registry.requests-pending')
     charm_config = hookenv.config()
-    port = charm_config.get('registry-port')
-    http_config = charm_config.get('http_config', '')
+
+    # auth config
+    basic_password = charm_config.get('auth-basic-password')
+    basic_user = charm_config.get('auth-basic-user')
 
     # tls config
     url_prefix = 'http'
-    tls_enabled = False
     tls_ca = None
     if is_flag_set('charm.docker-registry.tls-enabled'):
         url_prefix = 'https'
-        tls_enabled = True
         cert_provider = endpoint_from_flag('cert-provider.ca.available')
         if cert_provider:
             tls_ca = cert_provider.root_ca_cert
 
     # http config
-    if http_config and not http_config == "":
+    http_config = charm_config.get('http_config')
+    port = charm_config.get('registry-port')
+    if http_config:
         # When set, this config is our source of truth for the registry url
         registry_url = http_config
     else:
-        registry_url = '{}://{}:{}'.format(url_prefix, hookenv.unit_public_ip(), port)
+        # Construct a url with our proxy or private ip
+        website = endpoint_from_flag('website.available')
+        if website:
+            proxy_addrs = [hookenv.ingress_address(rid=u.rid, unit=u.unit)
+                           for u in hookenv.iter_units_for_relation_name(website.endpoint_name)]
+            registry_url = '{}://{}'.format(url_prefix, proxy_addrs[0])
+        else:
+            registry_url = '{}://{}:{}'.format(url_prefix, hookenv.unit_private_ip(), port)
 
+    # send config
     for request in registry.requests:
         hookenv.log('Sending {} and tls config to registry client.'.format(registry_url))
-        request.set_registry_config(registry_url=registry_url,
-                                    tls_enabled=tls_enabled,
+        request.set_registry_config(basic_password=basic_password,
+                                    basic_user=basic_user,
+                                    registry_url=registry_url,
                                     tls_ca=tls_ca)
     registry.mark_completed()
 
@@ -182,8 +193,6 @@ def remove_certs():
 def update_reverseproxy_config():
     website = endpoint_from_flag('website.available')
     port = hookenv.config().get('registry-port')
-    website.configure(port=port)
-
     services_yaml = """
 - service_name: %(app)s
   service_host: 0.0.0.0
@@ -200,8 +209,7 @@ def update_reverseproxy_config():
         'app': hookenv.application_name(),
         'unit': hookenv.local_unit().replace('/', '-'),
     }
-    for rel in website.relations:
-        rel.to_publish_raw.update({'all_services': services_yaml})
+    website.set_remote({'all_services': services_yaml})
 
 
 @when('charm.docker-registry.configured')
