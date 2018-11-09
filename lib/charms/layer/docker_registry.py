@@ -300,6 +300,30 @@ def get_tls_sans(relation_name=None):
     return sorted(sans)
 
 
+def is_container(name, all=True):
+    '''Determine if a registry container is present on the system.
+
+    Inform the caller if the named registry container exists. By default,
+    this considers all containers. Restrict to running containers with the
+    'all' parameter.
+
+    :param: all: True looks for all containers; False just looks for running
+    :return: True if container is present; False otherwise
+    '''
+    cmd = ['docker', 'container', 'list']
+    if all:
+        # show all containers
+        cmd.append('--all')
+    cmd.extend(['--filter', 'name={}'.format(name), '--format', '{{.Names}}'])
+    try:
+        containers = subprocess.check_output(cmd).decode('utf8')
+    except subprocess.CalledProcessError as e:
+        hookenv.log('Could not list existing containers: {}'.format(e),
+                    level=hookenv.WARNING)
+        containers = ''
+    return name in containers
+
+
 def start_registry(name=None, run_args=None):
     '''Start a registry container.
 
@@ -317,16 +341,7 @@ def start_registry(name=None, run_args=None):
     if not name:
         name = charm_config.get('registry-name')
 
-    cmd = ['docker', 'container', 'list', '--all',
-           '--filter', 'name={}'.format(name), '--format', '{{.Names}}']
-    try:
-        containers = subprocess.check_output(cmd).decode('utf8')
-    except subprocess.CalledProcessError as e:
-        hookenv.log('Could not list existing containers: {}'.format(e),
-                    level=hookenv.WARNING)
-        containers = ''
-
-    if name in containers:
+    if is_container(name):
         # start existing container
         cmd = ['docker', 'container', 'start', name]
         try:
@@ -337,6 +352,7 @@ def start_registry(name=None, run_args=None):
             raise
     else:
         # NB: config determines the port, but the container always listens to 5000 internally
+        # https://docs.docker.com/registry/deploying/#customize-the-published-port
         cmd = ['docker', 'run', '-d', '-p', '{}:5000'.format(port), '--restart', 'unless-stopped']
         if run_args:
             cmd.extend(run_args)
@@ -369,15 +385,18 @@ def stop_registry(name=None, remove=True):
     if not name:
         name = charm_config.get('registry-name')
 
-    cmd = ['docker', 'container', 'stop', name]
-    try:
-        subprocess.check_call(cmd)
-    except subprocess.CalledProcessError:
-        hookenv.log('Could not stop container: {}'.format(name),
-                    level=hookenv.ERROR)
-        raise
+    # only try to stop running containers
+    if is_container(name, all=False):
+        cmd = ['docker', 'container', 'stop', name]
+        try:
+            subprocess.check_call(cmd)
+        except subprocess.CalledProcessError:
+            hookenv.log('Could not stop container: {}'.format(name),
+                        level=hookenv.ERROR)
+            raise
 
-    if remove:
+    # only try to remove existing containers
+    if remove and is_container(name):
         cmd = ['docker', 'container', 'rm', '--volumes', name]
         try:
             subprocess.check_call(cmd)
