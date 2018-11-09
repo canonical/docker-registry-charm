@@ -135,15 +135,20 @@ def _configure_local_client():
                 host.install_ca_cert(ca_content)
 
         # Put our certs where the docker client expects to find them
-        # NB: these are the same certs used to serve the registry.
+        # NB: these are the same certs used to serve the registry, but have
+        # strict path requirements when used for docker client auth.
+        client_tls_dst = '/etc/docker/certs.d/{}'.format(netloc)
+        os.makedirs(client_tls_dst, exist_ok=True)
         tls_cert = charm_config.get('tls-cert-path', '')
+        if os.path.isfile(tls_cert) and any_file_changed([tls_cert]):
+            tls_cert_link = '{}/client.cert'.format(client_tls_dst)
+            _remove_if_exists(tls_cert_link)
+            os.symlink(tls_cert, tls_cert_link)
         tls_key = charm_config.get('tls-key-path', '')
-        if os.path.isfile(tls_cert) and os.path.isfile(tls_key):
-            client_tls_dst = '/etc/docker/certs.d/{}'.format(netloc)
-            os.makedirs(client_tls_dst, exist_ok=True)
-            os.symlink(tls_cert, '{}/client.cert'.format(client_tls_dst))
-            os.symlink(tls_key, '{}/client.key'.format(client_tls_dst))
-
+        if os.path.isfile(tls_key) and any_file_changed([tls_key]):
+            tls_key_link = '{}/client.key'.format(client_tls_dst)
+            _remove_if_exists(tls_key_link)
+            os.symlink(tls_key, tls_key_link)
     else:
         insecure_registry = '"{}"'.format(netloc)
 
@@ -256,12 +261,14 @@ def _write_htpasswd(path, user, password):
     :return: True if htpasswd succeeds; False otherwise
     '''
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    cmd = ['htpasswd', '-i', '-c', path, user]
-    execute = subprocess.Popen(cmd,
-                               stdin=subprocess.PIPE,
-                               stdout=subprocess.PIPE)
-    execute.communicate(input=password)
-    return execute.returncode == 0
+    cmd = ['htpasswd', '-Bbc', path, user, password]
+    try:
+        subprocess.check_call(cmd)
+    except subprocess.CalledProcessError as e:
+        hookenv.log('Error running htpasswd: {}'.format(e),
+                    level=hookenv.ERROR)
+        return False
+    return True
 
 
 def get_tls_sans(relation_name=None):
