@@ -121,7 +121,7 @@ def _configure_local_client():
     charm_config = hookenv.config()
 
     # client config depends on whether the registry is secure or insecure
-    netloc = _get_netloc()
+    netloc = get_netloc()
     if is_flag_set('charm.docker-registry.tls-enabled'):
         insecure_registry = ''
 
@@ -237,19 +237,6 @@ def _get_auth_token():
     return auth if os.path.isfile(cert_file) else None
 
 
-def _get_netloc():
-    '''Get the network location (host:port) for this registry.'''
-    charm_config = hookenv.config()
-
-    if charm_config.get('http-host'):
-        netloc = urlparse(charm_config['http-host']).netloc
-    else:
-        netloc = '{}:{}'.format(hookenv.unit_private_ip(),
-                                charm_config['registry-port'])
-
-    return netloc
-
-
 def _remove_if_exists(path):
     try:
         os.remove(path)
@@ -271,6 +258,17 @@ def _write_htpasswd(path, user, password):
                     level=hookenv.ERROR)
         return False
     return True
+
+
+def get_netloc():
+    '''Get the network location (host:port) for this registry.'''
+    charm_config = hookenv.config()
+    if charm_config.get('http-host'):
+        netloc = urlparse(charm_config['http-host']).netloc
+    else:
+        netloc = '{}:{}'.format(hookenv.unit_private_ip(),
+                                charm_config['registry-port'])
+    return netloc
 
 
 def get_tls_sans(relation_name=None):
@@ -447,7 +445,7 @@ def remove_tls():
     _remove_if_exists(tls_key)
 
     # unlink our local docker client tls data
-    client_tls_dst = '/etc/docker/certs.d/{}'.format(_get_netloc())
+    client_tls_dst = '/etc/docker/certs.d/{}'.format(get_netloc())
     if os.path.isdir(client_tls_dst):
         rmtree(client_tls_dst)
 

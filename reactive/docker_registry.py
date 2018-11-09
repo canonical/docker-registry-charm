@@ -16,23 +16,6 @@ from charms.leadership import leader_set
 from charms.reactive.helpers import data_changed
 
 
-def report_active_status():
-    '''Update status based on related charms/config.'''
-    app_suffix = []
-    if is_flag_set('charm.docker-registry.tls-enabled'):
-        app_suffix.append('tls')
-    else:
-        app_suffix.append('insecure')
-    if is_flag_set('website.available'):
-        app_suffix.append('proxied')
-
-    if app_suffix:
-        status_suffix = ' ({})'.format(', '.join(app_suffix))
-    else:
-        status_suffix = ''
-    layer.status.active('Ready{}.'.format(status_suffix))
-
-
 @when('apt.installed.docker.io')
 @when_not('charm.docker-registry.configured')
 def start():
@@ -42,7 +25,32 @@ def start():
     layer.docker_registry.start_registry()
 
     set_flag('charm.docker-registry.configured')
-    report_active_status()
+    report_status()
+
+
+@when('charm.docker-registry.configured')
+def report_status():
+    '''Update status based on related charms/config.'''
+    app_suffix = []
+    charm_config = hookenv.config()
+    name = charm_config.get('registry-name')
+    netloc = layer.docker_registry.get_netloc()
+
+    if layer.docker_registry.is_container(name, all=False):
+        if is_flag_set('charm.docker-registry.tls-enabled'):
+            app_suffix.append('https')
+        else:
+            app_suffix.append('http')
+        if is_flag_set('website.available'):
+            app_suffix.append('proxied')
+
+        if app_suffix:
+            status_suffix = ' ({})'.format(', '.join(app_suffix))
+        else:
+            status_suffix = ''
+        layer.status.active('Listening on {}{}.'.format(netloc, status_suffix))
+    else:
+        layer.status.blocked('{} container is stopped.'.format(name))
 
 
 @when('charm.docker-registry.configured')
@@ -65,7 +73,7 @@ def config_changed():
     layer.docker_registry.configure_registry()
     layer.docker_registry.start_registry()
 
-    report_active_status()
+    report_status()
 
 
 @when('charm.docker-registry.configured')
@@ -166,7 +174,7 @@ def write_certs():
             layer.docker_registry.start_registry()
 
             clear_flag('cert-provider.server.certs.changed')
-            report_active_status()
+            report_status()
         else:
             layer.status.maint('Could not write TLS data. Retrying.')
             clear_flag('charm.docker-registry.tls-enabled')
@@ -185,7 +193,7 @@ def remove_certs():
     clear_flag('charm.docker-registry.tls-enabled')
     layer.docker_registry.configure_registry()
     layer.docker_registry.start_registry()
-    report_active_status()
+    report_status()
 
 
 @when('charm.docker-registry.configured')

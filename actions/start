@@ -32,3 +32,4 @@ except CalledProcessError:
     fail('Failed to start container: {}'.format(name))
 else:
     hookenv.action_set({'outcome': 'success'})
+    hookenv.status_set('active', '{} container was started.'.format(name))
