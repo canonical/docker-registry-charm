@@ -88,9 +88,12 @@ def handle_requests():
     basic_password = charm_config.get('auth-basic-password')
     basic_user = charm_config.get('auth-basic-user')
     if basic_user and basic_password:
-        # only send if we have both parts of basic auth
+        # basic auth needs all or nothing
         data['basic_user'] = basic_user
         data['basic_password'] = basic_password
+    else:
+        data['basic_user'] = None
+        data['basic_password'] = None
 
     # tls config
     if is_flag_set('charm.docker-registry.tls-enabled'):
@@ -101,6 +104,7 @@ def handle_requests():
             data['tls_ca'] = tls_ca
     else:
         url_prefix = 'http'
+        data['tls_ca'] = None
 
     # http config
     http_config = charm_config.get('http_config')
