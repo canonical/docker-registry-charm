@@ -118,7 +118,7 @@ def handle_requests():
     # send config
     for request in registry.requests:
         hookenv.log('Sending config to registry client.')
-        request.set_registry_config(netloc, data)
+        request.set_registry_config(netloc, **data)
     registry.mark_completed()
 
 
