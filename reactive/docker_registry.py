@@ -82,43 +82,39 @@ def handle_requests():
     '''Set all the registry config that clients may care about.'''
     registry = endpoint_from_flag('endpoint.docker-registry.requests-pending')
     charm_config = hookenv.config()
+    data = {}
 
     # auth config
     basic_password = charm_config.get('auth-basic-password')
     basic_user = charm_config.get('auth-basic-user')
+    if basic_user and basic_password:
+        # only send if we have both parts of basic auth
+        data['basic_user'] = basic_user
+        data['basic_password'] = basic_password
 
     # tls config
-    url_prefix = 'http'
-    tls_ca = None
     if is_flag_set('charm.docker-registry.tls-enabled'):
         url_prefix = 'https'
         cert_provider = endpoint_from_flag('cert-provider.ca.available')
         if cert_provider:
             tls_ca = cert_provider.root_ca_cert
+            data['tls_ca'] = tls_ca
+    else:
+        url_prefix = 'http'
 
     # http config
     http_config = charm_config.get('http_config')
-    port = charm_config.get('registry-port')
+    netloc = layer.docker_registry.get_netloc()
     if http_config:
-        # When set, this config is our source of truth for the registry url
-        registry_url = http_config
+        # When set, trust that the user knows best
+        data['registry_url'] = http_config
     else:
-        # Construct a url with our proxy or private ip
-        website = endpoint_from_flag('website.available')
-        if website:
-            proxy_addrs = [hookenv.ingress_address(rid=u.rid, unit=u.unit)
-                           for u in hookenv.iter_units_for_relation_name(website.endpoint_name)]
-            registry_url = '{}://{}'.format(url_prefix, proxy_addrs[0])
-        else:
-            registry_url = '{}://{}:{}'.format(url_prefix, hookenv.unit_private_ip(), port)
+        data['registry_url'] = '{}://{}'.format(url_prefix, netloc)
 
     # send config
     for request in registry.requests:
-        hookenv.log('Sending {} and tls config to registry client.'.format(registry_url))
-        request.set_registry_config(basic_password=basic_password,
-                                    basic_user=basic_user,
-                                    registry_url=registry_url,
-                                    tls_ca=tls_ca)
+        hookenv.log('Sending config to registry client.')
+        request.set_registry_config(netloc, data)
     registry.mark_completed()
 
 

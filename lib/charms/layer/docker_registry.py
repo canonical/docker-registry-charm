@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 
 from charmhelpers.core import hookenv, host, templating, unitdata
 from charms.leadership import leader_get
-from charms.reactive import is_flag_set
+from charms.reactive import endpoint_from_flag, is_flag_set
 from charms.reactive.helpers import any_file_changed, data_changed
 
 
@@ -261,13 +261,29 @@ def _write_htpasswd(path, user, password):
 
 
 def get_netloc():
-    '''Get the network location (host:port) for this registry.'''
+    '''Get the network location (host:port) for this registry.
+
+    If http-host config is present, return the netloc for that config.
+    If related to a proxy, return the proxy netloc. Otherwise, return
+    our private_adddress:port.
+    '''
     charm_config = hookenv.config()
     if charm_config.get('http-host'):
         netloc = urlparse(charm_config['http-host']).netloc
     else:
-        netloc = '{}:{}'.format(hookenv.unit_private_ip(),
-                                charm_config['registry-port'])
+        # use the proxy address for our netloc (if available)
+        proxy = endpoint_from_flag('website.available')
+        if proxy:
+            proxy_addrs = [
+                hookenv.ingress_address(rid=u.rid, unit=u.unit)
+                for u in hookenv.iter_units_for_relation_name(proxy.endpoint_name)
+            ]
+            # NB: get the first addr; if you have multiple proxies, um, why?
+            # Presumably, the first will work just as well as any other.
+            netloc = proxy_addrs[0]
+        else:
+            netloc = '{}:{}'.format(hookenv.unit_private_ip(),
+                                    charm_config.get('registry-port', '5000'))
     return netloc
 
 
