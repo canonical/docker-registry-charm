@@ -268,6 +268,7 @@ def get_netloc():
     our private_adddress:port.
     '''
     charm_config = hookenv.config()
+    netloc = None
     if charm_config.get('http-host'):
         netloc = urlparse(charm_config['http-host']).netloc
     else:
@@ -278,15 +279,17 @@ def get_netloc():
                 hookenv.ingress_address(rid=u.rid, unit=u.unit)
                 for u in hookenv.iter_units_for_relation_name(proxy.endpoint_name)
             ]
-            # NB: get the first addr; if you have multiple proxies, um, why?
-            # Presumably, the first will work just as well as any other.
+            # NB: get the first addr; presumably, the first will work just as
+            # well as any other.
             try:
                 netloc = proxy_addrs[0]
             except IndexError:
-                netloc = None
-        else:
-            netloc = '{}:{}'.format(hookenv.unit_private_ip(),
-                                    charm_config.get('registry-port', '5000'))
+                # If we fail here, the proxy is probably departing; fall out
+                # to the default netloc.
+                pass
+    if not netloc:
+        netloc = '{}:{}'.format(hookenv.unit_private_ip(),
+                                charm_config.get('registry-port', '5000'))
     return netloc
 
 

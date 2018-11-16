@@ -73,14 +73,23 @@ def config_changed():
     layer.docker_registry.configure_registry()
     layer.docker_registry.start_registry()
 
+    # Now that we reconfigured the registry, inform connected clients if
+    # anything changed that they should know about.
+    if (is_flag_set('charm.docker-registry.client-configured') and
+            any((charm_config.changed('auth-basic-password'),
+                 charm_config.changed('auth-basic-user'),
+                 charm_config.changed('http-host')))):
+        configure_client()
+
     report_status()
 
 
-@when('charm.docker-registry.configured')
-@when('endpoint.docker-registry.requests-pending')
-def handle_requests():
+@when('charm.docker-registry.configured',
+      'endpoint.docker-registry.joined')
+@when_not('charm.docker-registry.client-configured')
+def configure_client():
     '''Set all the registry config that clients may care about.'''
-    registry = endpoint_from_flag('endpoint.docker-registry.requests-pending')
+    registry = endpoint_from_flag('endpoint.docker-registry.joined')
     charm_config = hookenv.config()
     data = {}
 
@@ -116,9 +125,18 @@ def handle_requests():
         data['registry_url'] = '{}://{}'.format(url_prefix, netloc)
 
     # send config
-    for request in registry.requests:
-        hookenv.log('Sending config to registry client.')
-        request.set_registry_config(netloc, **data)
+    hookenv.log('Sending {} config to client: {}.'.format(netloc, data))
+    registry.set_registry_config(netloc, **data)
+    set_flag('charm.docker-registry.client-configured')
+
+
+@when('charm.docker-registry.configured',
+      'charm.docker-registry.client-configured')
+@when('endpoint.docker-registry.requests-pending')
+def process_client_image_request():
+    '''Handle a client request to host an image in the registry.'''
+    hookenv.log('TODO: allow clients to request registry image')
+    registry = endpoint_from_flag('endpoint.docker-registry.requests-pending')
     registry.mark_completed()
 
 
@@ -173,6 +191,10 @@ def write_certs():
             layer.docker_registry.configure_registry()
             layer.docker_registry.start_registry()
 
+            # If we have clients, let them know our tls data has changed
+            if (is_flag_set('charm.docker-registry.client-configured')):
+                configure_client()
+
             clear_flag('cert-provider.server.certs.changed')
             report_status()
         else:
@@ -219,6 +241,11 @@ def update_reverseproxy_config():
     }
     website.configure(port=port)
     website.set_remote(all_services=services_yaml)
+
+    # A proxy may change our netloc; if we have clients, tell them.
+    netloc = layer.docker_registry.get_netloc()
+    if data_changed('proxy_netloc', netloc):
+        configure_client()
 
 
 @when('charm.docker-registry.configured')
