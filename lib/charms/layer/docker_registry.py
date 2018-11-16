@@ -1,3 +1,4 @@
+import base64
 import os
 import socket
 import subprocess
@@ -8,7 +9,7 @@ from urllib.parse import urlparse
 
 from charmhelpers.core import hookenv, host, templating, unitdata
 from charms.leadership import leader_get
-from charms.reactive import is_flag_set
+from charms.reactive import endpoint_from_flag, is_flag_set
 from charms.reactive.helpers import any_file_changed, data_changed
 
 
@@ -25,24 +26,17 @@ def configure_registry():
     kv.unset('docker_volumes')
     docker_volumes = {registry_config_file: '/etc/docker/registry/config.yml'}
 
-    # auth (https://docs.docker.com/registry/configuration/#token)
+    # auth (https://docs.docker.com/registry/configuration/#auth)
     auth = {}
-    if charm_config.get('auth-token-realm'):
-        auth_token_bundle = '/etc/docker/registry/auth_token.pem'
-        auth['token'] = {
-            'realm': charm_config.get('auth-token-realm', ''),
-            'service': charm_config.get('auth-token-service', ''),
-            'issuer': charm_config.get('auth-token-issuer', ''),
-            'rootcertbundle': auth_token_bundle,
-        }
-        os.makedirs(os.path.dirname(auth_token_bundle), exist_ok=True)
-        host.write_file(
-            auth_token_bundle,
-            charm_config.get('auth-token-root-certs', ''),
-            perms=0o644,
-        )
-        docker_volumes[auth_token_bundle] = '/etc/docker/registry/auth_token.pem'
-        registry_config['auth'] = auth
+    auth_basic = _get_auth_basic()
+    if auth_basic:
+        auth['htpasswd'] = auth_basic
+        docker_volumes[auth_basic['path']] = '/etc/docker/registry/htpasswd'
+    auth_token = _get_auth_token()
+    if auth_token:
+        auth['token'] = auth_token
+        docker_volumes[auth_basic['rootcertbundle']] = '/etc/docker/registry/auth_token.pem'
+    registry_config['auth'] = auth
 
     # http (https://docs.docker.com/registry/configuration/#http)
     port = charm_config.get('registry-port')
@@ -127,7 +121,7 @@ def _configure_local_client():
     charm_config = hookenv.config()
 
     # client config depends on whether the registry is secure or insecure
-    netloc = _get_netloc()
+    netloc = get_netloc()
     if is_flag_set('charm.docker-registry.tls-enabled'):
         insecure_registry = ''
 
@@ -142,15 +136,20 @@ def _configure_local_client():
                 host.install_ca_cert(ca_content)
 
         # Put our certs where the docker client expects to find them
-        # NB: these are the same certs used to serve the registry.
+        # NB: these are the same certs used to serve the registry, but have
+        # strict path requirements when used for docker client auth.
+        client_tls_dst = '/etc/docker/certs.d/{}'.format(netloc)
+        os.makedirs(client_tls_dst, exist_ok=True)
         tls_cert = charm_config.get('tls-cert-path', '')
+        if os.path.isfile(tls_cert) and any_file_changed([tls_cert]):
+            tls_cert_link = '{}/client.cert'.format(client_tls_dst)
+            _remove_if_exists(tls_cert_link)
+            os.symlink(tls_cert, tls_cert_link)
         tls_key = charm_config.get('tls-key-path', '')
-        if os.path.isfile(tls_cert) and os.path.isfile(tls_key):
-            client_tls_dst = '/etc/docker/certs.d/{}'.format(netloc)
-            os.makedirs(client_tls_dst, exist_ok=True)
-            os.symlink(tls_cert, '{}/client.cert'.format(client_tls_dst))
-            os.symlink(tls_key, '{}/client.key'.format(client_tls_dst))
-
+        if os.path.isfile(tls_key) and any_file_changed([tls_key]):
+            tls_key_link = '{}/client.key'.format(client_tls_dst)
+            _remove_if_exists(tls_key_link)
+            os.symlink(tls_key, tls_key_link)
     else:
         insecure_registry = '"{}"'.format(netloc)
 
@@ -159,16 +158,138 @@ def _configure_local_client():
     host.service_restart('docker')
 
 
-def _get_netloc():
-    '''Get the network location (host:port) for this registry.'''
-    charm_config = hookenv.config()
+def _get_auth_basic():
+    '''Process our basic auth configuration.
 
+    When required config is present (or changes), write an htpasswd file
+    and construct a valid auth dict. When config is missing, remove any
+    existing htpasswd file.
+
+    :return: dict of htpasswd auth data, or None
+    '''
+    charm_config = hookenv.config()
+    password = charm_config.get('auth-basic-password')
+    user = charm_config.get('auth-basic-user')
+
+    auth = {}
+    htpasswd_file = '/etc/docker/registry/htpasswd'
+    if user and password:
+        auth = {
+            'realm': hookenv.application_name(),
+            'path': htpasswd_file,
+        }
+        # Only write a new htpasswd if something changed
+        if data_changed('basic_auth', '{}:{}'.format(user, password)):
+            if _write_htpasswd(htpasswd_file, user, password):
+                msg = 'Wrote new {}; htpasswd auth is available'.format(
+                    htpasswd_file)
+            else:
+                msg = 'Failed to write {}; htpasswd auth is unavailable'.format(
+                    htpasswd_file)
+                _remove_if_exists(htpasswd_file)
+        else:
+            msg = 'htpasswd auth is available'
+    else:
+        msg = 'Missing config: htpasswd auth is unavailable'
+        _remove_if_exists(htpasswd_file)
+
+    hookenv.log(msg, level=hookenv.INFO)
+    return auth if os.path.isfile(htpasswd_file) else None
+
+
+def _get_auth_token():
+    '''Process our token auth configuration.
+
+    When required config is present (or changes), write necessary pem bundle
+    and construct a valid auth dict. When config is missing, remove any
+    previously written bundle.
+
+    :return: dict of token auth data, or None
+    '''
+    charm_config = hookenv.config()
+    issuer = charm_config.get('auth-token-issuer')
+    realm = charm_config.get('auth-token-realm')
+    root_certs = charm_config.get('auth-token-root-certs')
+    service = charm_config.get('auth-token-service')
+
+    auth = {}
+    cert_file = '/etc/docker/registry/auth_token.pem'
+    if all((issuer, realm, root_certs, service)):
+        auth = {
+            'issuer': issuer,
+            'realm': realm,
+            'rootcertbundle': cert_file,
+            'service': service,
+        }
+        # Only write a new cert bundle if root certs changed
+        if data_changed('token_auth', root_certs):
+            os.makedirs(os.path.dirname(cert_file), exist_ok=True)
+            decoded = base64.b64decode(root_certs).decode('utf8')
+            host.write_file(cert_file, content=decoded, perms=0o644)
+            msg = 'Wrote new {}; token auth is available'.format(cert_file)
+        else:
+            msg = 'Token auth is available'
+    else:
+        msg = 'Missing config: token auth is unavailable'
+        _remove_if_exists(cert_file)
+
+    hookenv.log(msg, level=hookenv.INFO)
+    return auth if os.path.isfile(cert_file) else None
+
+
+def _remove_if_exists(path):
+    try:
+        os.remove(path)
+    except FileNotFoundError:
+        pass
+
+
+def _write_htpasswd(path, user, password):
+    '''Write an htpasswd file.
+
+    :return: True if htpasswd succeeds; False otherwise
+    '''
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    cmd = ['htpasswd', '-Bbc', path, user, password]
+    try:
+        subprocess.check_call(cmd)
+    except subprocess.CalledProcessError as e:
+        hookenv.log('Error running htpasswd: {}'.format(e),
+                    level=hookenv.ERROR)
+        return False
+    return True
+
+
+def get_netloc():
+    '''Get the network location (host:port) for this registry.
+
+    If http-host config is present, return the netloc for that config.
+    If related to a proxy, return the proxy netloc. Otherwise, return
+    our private_adddress:port.
+    '''
+    charm_config = hookenv.config()
+    netloc = None
     if charm_config.get('http-host'):
         netloc = urlparse(charm_config['http-host']).netloc
     else:
+        # use the proxy address for our netloc (if available)
+        proxy = endpoint_from_flag('website.available')
+        if proxy:
+            proxy_addrs = [
+                hookenv.ingress_address(rid=u.rid, unit=u.unit)
+                for u in hookenv.iter_units_for_relation_name(proxy.endpoint_name)
+            ]
+            # NB: get the first addr; presumably, the first will work just as
+            # well as any other.
+            try:
+                netloc = proxy_addrs[0]
+            except IndexError:
+                # If we fail here, the proxy is probably departing; fall out
+                # to the default netloc.
+                pass
+    if not netloc:
         netloc = '{}:{}'.format(hookenv.unit_private_ip(),
-                                charm_config['registry-port'])
-
+                                charm_config.get('registry-port', '5000'))
     return netloc
 
 
@@ -199,6 +320,30 @@ def get_tls_sans(relation_name=None):
     return sorted(sans)
 
 
+def is_container(name, all=True):
+    '''Determine if a registry container is present on the system.
+
+    Inform the caller if the named registry container exists. By default,
+    this considers all containers. Restrict to running containers with the
+    'all' parameter.
+
+    :param: all: True looks for all containers; False just looks for running
+    :return: True if container is present; False otherwise
+    '''
+    cmd = ['docker', 'container', 'list']
+    if all:
+        # show all containers
+        cmd.append('--all')
+    cmd.extend(['--filter', 'name={}'.format(name), '--format', '{{.Names}}'])
+    try:
+        containers = subprocess.check_output(cmd).decode('utf8')
+    except subprocess.CalledProcessError as e:
+        hookenv.log('Could not list existing containers: {}'.format(e),
+                    level=hookenv.WARNING)
+        containers = ''
+    return name in containers
+
+
 def start_registry(name=None, run_args=None):
     '''Start a registry container.
 
@@ -216,16 +361,7 @@ def start_registry(name=None, run_args=None):
     if not name:
         name = charm_config.get('registry-name')
 
-    cmd = ['docker', 'container', 'list', '--all',
-           '--filter', 'name={}'.format(name), '--format', '{{.Names}}']
-    try:
-        containers = subprocess.check_output(cmd).decode('utf8')
-    except subprocess.CalledProcessError as e:
-        hookenv.log('Could not list existing containers: {}'.format(e),
-                    level=hookenv.WARNING)
-        containers = ''
-
-    if name in containers:
+    if is_container(name):
         # start existing container
         cmd = ['docker', 'container', 'start', name]
         try:
@@ -236,6 +372,7 @@ def start_registry(name=None, run_args=None):
             raise
     else:
         # NB: config determines the port, but the container always listens to 5000 internally
+        # https://docs.docker.com/registry/deploying/#customize-the-published-port
         cmd = ['docker', 'run', '-d', '-p', '{}:5000'.format(port), '--restart', 'unless-stopped']
         if run_args:
             cmd.extend(run_args)
@@ -268,15 +405,18 @@ def stop_registry(name=None, remove=True):
     if not name:
         name = charm_config.get('registry-name')
 
-    cmd = ['docker', 'container', 'stop', name]
-    try:
-        subprocess.check_call(cmd)
-    except subprocess.CalledProcessError:
-        hookenv.log('Could not stop container: {}'.format(name),
-                    level=hookenv.ERROR)
-        raise
+    # only try to stop running containers
+    if is_container(name, all=False):
+        cmd = ['docker', 'container', 'stop', name]
+        try:
+            subprocess.check_call(cmd)
+        except subprocess.CalledProcessError:
+            hookenv.log('Could not stop container: {}'.format(name),
+                        level=hookenv.ERROR)
+            raise
 
-    if remove:
+    # only try to remove existing containers
+    if remove and is_container(name):
         cmd = ['docker', 'container', 'rm', '--volumes', name]
         try:
             subprocess.check_call(cmd)
@@ -321,16 +461,13 @@ def remove_tls():
     tls_cert = charm_config.get('tls-cert-path', '')
     tls_key = charm_config.get('tls-key-path', '')
 
-    # unlink our registry tls data
-    if os.path.isfile(tls_ca):
-        os.remove(tls_ca)
-    if os.path.isfile(tls_cert):
-        os.remove(tls_cert)
-    if os.path.isfile(tls_key):
-        os.remove(tls_key)
+    # unlink our registry tls files
+    _remove_if_exists(tls_ca)
+    _remove_if_exists(tls_cert)
+    _remove_if_exists(tls_key)
 
     # unlink our local docker client tls data
-    client_tls_dst = '/etc/docker/certs.d/{}'.format(_get_netloc())
+    client_tls_dst = '/etc/docker/certs.d/{}'.format(get_netloc())
     if os.path.isdir(client_tls_dst):
         rmtree(client_tls_dst)
 

@@ -16,23 +16,6 @@ from charms.leadership import leader_set
 from charms.reactive.helpers import data_changed
 
 
-def report_active_status():
-    '''Update status based on related charms/config.'''
-    app_suffix = []
-    if is_flag_set('charm.docker-registry.tls-enabled'):
-        app_suffix.append('tls')
-    else:
-        app_suffix.append('insecure')
-    if is_flag_set('website.available'):
-        app_suffix.append('proxied')
-
-    if app_suffix:
-        status_suffix = ' ({})'.format(', '.join(app_suffix))
-    else:
-        status_suffix = ''
-    layer.status.active('Ready{}.'.format(status_suffix))
-
-
 @when('apt.installed.docker.io')
 @when_not('charm.docker-registry.configured')
 def start():
@@ -42,7 +25,32 @@ def start():
     layer.docker_registry.start_registry()
 
     set_flag('charm.docker-registry.configured')
-    report_active_status()
+    report_status()
+
+
+@when('charm.docker-registry.configured')
+def report_status():
+    '''Update status based on related charms/config.'''
+    app_suffix = []
+    charm_config = hookenv.config()
+    name = charm_config.get('registry-name')
+    netloc = layer.docker_registry.get_netloc()
+
+    if layer.docker_registry.is_container(name, all=False):
+        if is_flag_set('charm.docker-registry.tls-enabled'):
+            app_suffix.append('https')
+        else:
+            app_suffix.append('http')
+        if is_flag_set('website.available'):
+            app_suffix.append('proxied')
+
+        if app_suffix:
+            status_suffix = ' ({})'.format(', '.join(app_suffix))
+        else:
+            status_suffix = ''
+        layer.status.active('Listening on {}{}.'.format(netloc, status_suffix))
+    else:
+        layer.status.blocked('{} container is stopped.'.format(name))
 
 
 @when('charm.docker-registry.configured')
@@ -65,41 +73,70 @@ def config_changed():
     layer.docker_registry.configure_registry()
     layer.docker_registry.start_registry()
 
-    report_active_status()
+    # Now that we reconfigured the registry, inform connected clients if
+    # anything changed that they should know about.
+    if (is_flag_set('charm.docker-registry.client-configured') and
+            any((charm_config.changed('auth-basic-password'),
+                 charm_config.changed('auth-basic-user'),
+                 charm_config.changed('http-host')))):
+        configure_client()
+
+    report_status()
 
 
-@when('charm.docker-registry.configured')
-@when('endpoint.docker-registry.requests-pending')
-def handle_requests():
+@when('charm.docker-registry.configured',
+      'endpoint.docker-registry.joined')
+@when_not('charm.docker-registry.client-configured')
+def configure_client():
     '''Set all the registry config that clients may care about.'''
-    registry = endpoint_from_flag('endpoint.docker-registry.requests-pending')
+    registry = endpoint_from_flag('endpoint.docker-registry.joined')
     charm_config = hookenv.config()
-    port = charm_config.get('registry-port')
-    http_config = charm_config.get('http_config', '')
+    data = {}
+
+    # auth config
+    basic_password = charm_config.get('auth-basic-password')
+    basic_user = charm_config.get('auth-basic-user')
+    if basic_user and basic_password:
+        # basic auth needs all or nothing
+        data['basic_user'] = basic_user
+        data['basic_password'] = basic_password
+    else:
+        data['basic_user'] = None
+        data['basic_password'] = None
 
     # tls config
-    url_prefix = 'http'
-    tls_enabled = False
-    tls_ca = None
     if is_flag_set('charm.docker-registry.tls-enabled'):
         url_prefix = 'https'
-        tls_enabled = True
         cert_provider = endpoint_from_flag('cert-provider.ca.available')
         if cert_provider:
             tls_ca = cert_provider.root_ca_cert
+            data['tls_ca'] = tls_ca
+    else:
+        url_prefix = 'http'
+        data['tls_ca'] = None
 
     # http config
-    if http_config and not http_config == "":
-        # When set, this config is our source of truth for the registry url
-        registry_url = http_config
+    http_config = charm_config.get('http_config')
+    netloc = layer.docker_registry.get_netloc()
+    if http_config:
+        # When set, trust that the user knows best
+        data['registry_url'] = http_config
     else:
-        registry_url = '{}://{}:{}'.format(url_prefix, hookenv.unit_public_ip(), port)
+        data['registry_url'] = '{}://{}'.format(url_prefix, netloc)
 
-    for request in registry.requests:
-        hookenv.log('Sending {} and tls config to registry client.'.format(registry_url))
-        request.set_registry_config(registry_url=registry_url,
-                                    tls_enabled=tls_enabled,
-                                    tls_ca=tls_ca)
+    # send config
+    hookenv.log('Sending {} config to client: {}.'.format(netloc, data))
+    registry.set_registry_config(netloc, **data)
+    set_flag('charm.docker-registry.client-configured')
+
+
+@when('charm.docker-registry.configured',
+      'charm.docker-registry.client-configured')
+@when('endpoint.docker-registry.requests-pending')
+def process_client_image_request():
+    '''Handle a client request to host an image in the registry.'''
+    hookenv.log('TODO: allow clients to request registry image')
+    registry = endpoint_from_flag('endpoint.docker-registry.requests-pending')
     registry.mark_completed()
 
 
@@ -154,8 +191,12 @@ def write_certs():
             layer.docker_registry.configure_registry()
             layer.docker_registry.start_registry()
 
+            # If we have clients, let them know our tls data has changed
+            if (is_flag_set('charm.docker-registry.client-configured')):
+                configure_client()
+
             clear_flag('cert-provider.server.certs.changed')
-            report_active_status()
+            report_status()
         else:
             layer.status.maint('Could not write TLS data. Retrying.')
             clear_flag('charm.docker-registry.tls-enabled')
@@ -174,7 +215,11 @@ def remove_certs():
     clear_flag('charm.docker-registry.tls-enabled')
     layer.docker_registry.configure_registry()
     layer.docker_registry.start_registry()
-    report_active_status()
+
+    # If we have clients, let them know our tls data has changed
+    if (is_flag_set('charm.docker-registry.client-configured')):
+        configure_client()
+    report_status()
 
 
 @when('charm.docker-registry.configured')
@@ -182,8 +227,6 @@ def remove_certs():
 def update_reverseproxy_config():
     website = endpoint_from_flag('website.available')
     port = hookenv.config().get('registry-port')
-    website.configure(port=port)
-
     services_yaml = """
 - service_name: %(app)s
   service_host: 0.0.0.0
@@ -200,8 +243,13 @@ def update_reverseproxy_config():
         'app': hookenv.application_name(),
         'unit': hookenv.local_unit().replace('/', '-'),
     }
-    for rel in website.relations:
-        rel.to_publish_raw.update({'all_services': services_yaml})
+    website.configure(port=port)
+    website.set_remote(all_services=services_yaml)
+
+    # A proxy may change our netloc; if we have clients, tell them.
+    netloc = layer.docker_registry.get_netloc()
+    if data_changed('proxy_netloc', netloc):
+        configure_client()
 
 
 @when('charm.docker-registry.configured')

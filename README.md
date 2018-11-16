@@ -30,6 +30,21 @@ juju deploy ~containers/easyrsa
 juju relate easyrsa docker-registry
 ```
 
+This charm also supports configuration-based TLS, which does not require a
+relation to a TLS provider. Instead, transfer required files and configure
+this charm as follows:
+
+```bash
+juju scp /my/local/ca.pem docker-registry/0:/home/ubuntu/ca.pem
+juju scp /my/local/cert.crt docker-registry/0:/home/ubuntu/cert.crt
+juju scp /my/local/cert.key docker-registry/0:/home/ubuntu/cert.key
+
+juju config docker-registry \
+  tls-ca-path=/home/ubuntu/ca.pem \
+  tls-cert-path=/home/ubuntu/cert.crt \
+  tls-key-path=/home/ubuntu/cert.key
+```
+
 ### Proxied Registry
 
 This charm supports an `http` proxy relation that allows operators to
@@ -44,10 +59,6 @@ juju relate haproxy docker-registry
 juju expose haproxy
 ```
 
-### Integration with Kubernetes
-
-See the Kubernetes private docker registry wiki for details.
-
 ### Nagios Monitoring
 
 This charm supports monitoring with nagios:
@@ -59,39 +70,61 @@ juju deploy nrpe --series bionic
 juju relate docker-registry nrpe
 ```
 
-## Hosting Images
+### Kubernetes Integration
 
-To make an image available in your private docker registry, you must tag and
-push it. This charm provides an action that will do this:
+See the [Private Docker Registry][k8s-wiki] wiki for details on integrating
+this charm with Kubernetes.
+
+[k8s-wiki]: https://github.com/juju-solutions/bundle-canonical-kubernetes/wiki/WIP:-Private-Docker-Registry
+
+## Actions
+
+### Hosting Images
+
+To make an image available in the deployed registry, it must be tagged and
+pushed. This charm provides the `push` action to do this:
 
 ```bash
-juju run-action --wait docker-registry push \
+juju run-action --wait docker-registry/0 push \
   image=<image> pull=<True|False> tag=<optional-tag-name>
 ```
 
-By default, this action will tag/push a local image so it is available from
-your registry. If you specify `pull=True`, the action will first pull the
+This action will always tag and push a local image to the registry. By
+specifying `pull=True` (the default), the action will first pull the
 given `image` and subsequently tag/push it.
 
 The default image tag is 'net_loc/name:version', where 'net_loc' is the
 `http-host` config option or http[s]://[private-ip]:[port] if config is not
-set. The image tag can be overriden by specifying the `tag` action paramenter.
+set. The image tag can be overriden by specifying the `tag` action parameter.
+
+### Starting/Stoping
+
+The registry is configured to start automatically with the dockerd system
+service. It can also be started or stopped with charm actions as follows:
+
+```bash
+juju run-action --wait docker-registry/0 stop
+juju run-action --wait docker-registry/0 start
+```
 
 ## Configuration
 
-### Using Basic Authentication
+### Authentication
 
-Basic auth support can be enabled by setting charm configuration options:
+This charm supports basic (htpasswd) as well as token-based authentication.
+Configure either method as follows:
 
 ```bash
 juju config docker-registry \
-  auth-token-issuer=<name> \
-  auth-token-realm=<location> \
-  auth-token-root-certs=<cert-bundle> \
-  auth-token-service=<server>
-```
+  auth-basic-user='admin' \
+  auth-basic-password='redrum'
 
->Note: If any of the auth config options are set, they must all be set.
+juju config docker-registry \
+  auth-token-issuer='auth.example.com' \
+  auth-token-realm='myorg' \
+  auth-token-root-certs='$(base64 /path/to/file)' \
+  auth-token-service='myapp'
+```
 
 ### Swift Storage
 
@@ -109,3 +142,8 @@ juju config docker-registry \
 ```
 
 >Note: If any of the swift config options are set, they must all be set.
+
+## Contact
+
+The `docker-registry` charm is free and open source software created by the
+containers team at Canonical.
