@@ -280,7 +280,10 @@ def get_netloc():
             ]
             # NB: get the first addr; if you have multiple proxies, um, why?
             # Presumably, the first will work just as well as any other.
-            netloc = proxy_addrs[0]
+            try:
+                netloc = proxy_addrs[0]
+            except IndexError:
+                netloc = None
         else:
             netloc = '{}:{}'.format(hookenv.unit_private_ip(),
                                     charm_config.get('registry-port', '5000'))
