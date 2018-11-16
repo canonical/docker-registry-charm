@@ -37,9 +37,9 @@ tag = hookenv.action_get('tag')
 if not tag:
     # construct a tag
     port = charm_config.get('registry-port')
-    http_config = charm_config.get('http_config', '')
+    http_config = charm_config.get('http_config')
 
-    if http_config and not http_config == "":
+    if http_config:
         # When set, this config is our source of truth for the registry url
         tag = http_config
     else:

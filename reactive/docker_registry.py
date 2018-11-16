@@ -215,6 +215,10 @@ def remove_certs():
     clear_flag('charm.docker-registry.tls-enabled')
     layer.docker_registry.configure_registry()
     layer.docker_registry.start_registry()
+
+    # If we have clients, let them know our tls data has changed
+    if (is_flag_set('charm.docker-registry.client-configured')):
+        configure_client()
     report_status()
 
 
