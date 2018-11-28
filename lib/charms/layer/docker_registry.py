@@ -35,7 +35,7 @@ def configure_registry():
     auth_token = _get_auth_token()
     if auth_token:
         auth['token'] = auth_token
-        docker_volumes[auth_basic['rootcertbundle']] = '/etc/docker/registry/auth_token.pem'
+        docker_volumes[auth_token['rootcertbundle']] = '/etc/docker/registry/auth_token.pem'
     registry_config['auth'] = auth
 
     # http (https://docs.docker.com/registry/configuration/#http)
