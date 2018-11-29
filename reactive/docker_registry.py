@@ -248,7 +248,8 @@ def update_reverseproxy_config():
 
     # A proxy may change our netloc; if we have clients, tell them.
     netloc = layer.docker_registry.get_netloc()
-    if data_changed('proxy_netloc', netloc):
+    if (is_flag_set('charm.docker-registry.client-configured') and
+            data_changed('proxy_netloc', netloc)):
         configure_client()
 
 
