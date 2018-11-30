@@ -75,7 +75,7 @@ juju relate docker-registry nrpe
 See the [Private Docker Registry][k8s-wiki] wiki for details on integrating
 this charm with Kubernetes.
 
-[k8s-wiki]: https://github.com/juju-solutions/bundle-canonical-kubernetes/wiki/WIP:-Private-Docker-Registry
+[k8s-wiki]: https://github.com/juju-solutions/bundle-canonical-kubernetes/wiki/Private-Docker-Registry
 
 ## Actions
 
