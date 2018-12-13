@@ -4,6 +4,7 @@ import socket
 import subprocess
 import yaml
 
+from pathlib import Path
 from shutil import rmtree
 from urllib.parse import urlparse
 
@@ -279,12 +280,12 @@ def _write_tls_blobs_to_files():
     ]
 
     for blob, path in blobs:
-        content = charm_config.get(blob)
-        if content:
-            if not os.path.isdir(os.path.basename(path)):
-                os.makedirs(os.path.basename(path))
-            with open(charm_config.get(path), 'wb') as f:
-                f.write(base64.b64decode(content))
+        blob = charm_config.get(blob)
+        path = Path(charm_config.get(path))
+
+        if blob:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(base64.b64decode(blob))
 
 
 def get_netloc():
