@@ -268,7 +268,6 @@ def _write_htpasswd(path, user, password):
 def _write_tls_blobs_to_files():
     '''Write the user defined TLS blobs to files.
 
-    :parm charm_config: Object
     :return: None
     '''
     charm_config = hookenv.config()
