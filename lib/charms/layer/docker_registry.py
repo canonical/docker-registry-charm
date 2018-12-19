@@ -50,8 +50,7 @@ def configure_registry():
         http['secret'] = http_secret
 
     # Only does anything if tls-*-blob set.
-    if not _write_tls_blobs_to_files():
-       return False
+    _write_tls_blobs_to_files()
 
     tls_ca = charm_config.get('tls-ca-path', '')
     tls_cert = charm_config.get('tls-cert-path', '')
@@ -269,7 +268,7 @@ def _write_htpasswd(path, user, password):
 def _write_tls_blobs_to_files():
     '''Write the user defined TLS blobs to files.
 
-    :return: Boolean successful
+    :return: None
     '''
     charm_config = hookenv.config()
 
@@ -289,9 +288,6 @@ def _write_tls_blobs_to_files():
 
         elif not path:
             hookenv.log('{} must be set.'.format(path_key))
-            return False
-
-        return True
 
 
 def get_netloc():
