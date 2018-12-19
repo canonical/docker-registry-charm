@@ -4,6 +4,7 @@ includes:
 - layer:apt
 - layer:nagios
 - layer:status
+- layer:docker
 - interface:docker-registry
 - interface:http
 - interface:tls-certificates
@@ -13,5 +14,3 @@ options:
     packages:
       - apache2-utils
       - python3-yaml
-      - docker.io
-    version_package: docker.io

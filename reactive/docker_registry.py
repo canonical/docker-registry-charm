@@ -16,7 +16,7 @@ from charms.leadership import leader_set
 from charms.reactive.helpers import data_changed
 
 
-@when('apt.installed.docker.io')
+@when('docker.ready')
 @when_not('charm.docker-registry.configured')
 def start():
     layer.status.maint('Configuring the registry.')
