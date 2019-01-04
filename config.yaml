@@ -51,6 +51,10 @@ options:
     type: int
     default: 5000
     description: The external port on which the docker registry listens.
+  storage-read-only:
+    type: boolean
+    default: false
+    description: Controls the storage maintenance option "readonly".  Will cause a restart.
   storage-swift-authurl:
     type: string
     default: ""
