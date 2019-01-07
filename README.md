@@ -97,7 +97,7 @@ The default image tag is 'net_loc/name:version', where 'net_loc' is the
 `http-host` config option or http[s]://[private-ip]:[port] if config is not
 set. The image tag can be overriden by specifying the `tag` action parameter.
 
-### Starting/Stoping
+### Starting/Stopping
 
 The registry is configured to start automatically with the dockerd system
 service. It can also be started or stopped with charm actions as follows:
@@ -125,6 +125,23 @@ juju config docker-registry \
   auth-token-root-certs='$(base64 /path/to/file)' \
   auth-token-service='myapp'
 ```
+
+### Read-Only Mode
+
+The registry can be switched to [read-only mode][readonly] by setting
+the `storage-read-only` config item to `true`:
+
+```bash
+juju config docker-registry storage-read-only=true
+```
+
+[readonly]: https://docs.docker.com/registry/configuration/#readonly
+
+This may be useful when performing maintenance, or for providing
+unauthenticated download access to the backend registry storage (for
+example, a Swift object storage cluster) with another deployment of
+the charm alongside configured with authentication and
+`storage-read-only` at the default value.
 
 ### Swift Storage
 
