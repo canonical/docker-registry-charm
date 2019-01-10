@@ -80,6 +80,18 @@ options:
     type: string
     default: ""
     description: The username to use to access swift.
+  tls-ca-blob:
+    type: string
+    default: ""
+    description: Base64 encoded TLS CA certificate (overwrites tls-cert-path file).
+  tls-cert-blob:
+    type: string
+    default: ""
+    description: Base64 encoded TLS certificate (overwrites tls-cert-path file).
+  tls-key-blob:
+    type: string
+    default: ""
+    description: Base64 encoded TLS certificate private key (overwrites tls-key-path file).
   tls-ca-path:
     type: string
     default: "/etc/docker/registry/ca.crt"

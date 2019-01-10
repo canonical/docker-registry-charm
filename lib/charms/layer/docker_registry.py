@@ -4,6 +4,7 @@ import socket
 import subprocess
 import yaml
 
+from pathlib import Path
 from shutil import rmtree
 from urllib.parse import urlparse
 
@@ -47,6 +48,10 @@ def configure_registry():
     http_secret = leader_get('http-secret')
     if http_secret:
         http['secret'] = http_secret
+
+    # Only does anything if tls-*-blob set.
+    _write_tls_blobs_to_files()
+
     tls_ca = charm_config.get('tls-ca-path', '')
     tls_cert = charm_config.get('tls-cert-path', '')
     tls_key = charm_config.get('tls-key-path', '')
@@ -260,6 +265,31 @@ def _write_htpasswd(path, user, password):
                     level=hookenv.ERROR)
         return False
     return True
+
+
+def _write_tls_blobs_to_files():
+    '''Write the user defined TLS blobs to files.
+
+    :return: None
+    '''
+    charm_config = hookenv.config()
+
+    blobs = [
+        ('tls-cert-blob', 'tls-cert-path'),
+        ('tls-ca-blob', 'tls-ca-path'),
+        ('tls-key-blob', 'tls-key-path')
+    ]
+
+    for blob_key, path_key in blobs:
+        blob = charm_config.get(blob_key)
+        path = Path(charm_config.get(path_key))
+
+        if blob and path:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(base64.b64decode(blob))
+
+        elif not path:
+            hookenv.log('{} must be set.'.format(path_key))
 
 
 def get_netloc():
