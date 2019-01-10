@@ -97,7 +97,7 @@ The default image tag is 'net_loc/name:version', where 'net_loc' is the
 `http-host` config option or http[s]://[private-ip]:[port] if config is not
 set. The image tag can be overriden by specifying the `tag` action parameter.
 
-### Starting/Stoping
+### Starting/Stopping
 
 The registry is configured to start automatically with the dockerd system
 service. It can also be started or stopped with charm actions as follows:
@@ -125,6 +125,42 @@ juju config docker-registry \
   auth-token-root-certs='$(base64 /path/to/file)' \
   auth-token-service='myapp'
 ```
+
+### Read-Only Mode
+
+The registry can be switched to [read-only mode][readonly] by setting
+the `storage-read-only` config option to `true`:
+
+```bash
+juju config docker-registry storage-read-only=true
+```
+
+[readonly]: https://docs.docker.com/registry/configuration/#readonly
+
+This may be useful when performing maintenance or deploying an environment
+with complex authentication requirements.
+
+As an example, consider a scenario that requires unauthenticated pull
+and authenticated push access to the registry. This can be achieved by
+deploying this charm twice with the same storage backend (for example,
+a Swift object storage cluster):
+
+```bash
+juju deploy docker-registry public --config <storage-swift-opts>
+juju deploy docker-registry private --config <storage-swift-opts>
+```
+
+Configure the unauthenticated public registry to be read-only, and enable
+authentication for the private registry:
+
+```bash
+juju config public storage-read-only=true
+juju config private <auth-opts>
+```
+
+With a common storage backend and appropriate configuration, unauthenticated
+public users have a read-only view of the images pushed by authenticated
+private users.
 
 ### Swift Storage
 

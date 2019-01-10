@@ -42,15 +42,19 @@ options:
   registry-image:
     type: string
     default: "registry:2"
-    description: Registry image
+    description: Registry image.
   registry-name:
     type: string
     default: "registry"
-    description: Name of the registry container
+    description: Name of the registry container.
   registry-port:
     type: int
     default: 5000
     description: The external port on which the docker registry listens.
+  storage-read-only:
+    type: boolean
+    default: false
+    description: Controls the storage maintenance option "readonly".
   storage-swift-authurl:
     type: string
     default: ""
