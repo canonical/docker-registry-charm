@@ -97,10 +97,9 @@ def configure_registry():
     else:
         storage['filesystem'] = {'rootdirectory': '/var/lib/registry'}
         storage['cache'] = {'blobdescriptor': 'inmemory'}
-    registry_config['storage'] = storage
-
     if charm_config.get('storage-read-only'):
         storage['maintenance'] = {'readonly': {'enabled': True}}
+    registry_config['storage'] = storage
 
     os.makedirs(os.path.dirname(registry_config_file), exist_ok=True)
     host.write_file(

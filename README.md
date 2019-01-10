@@ -129,7 +129,7 @@ juju config docker-registry \
 ### Read-Only Mode
 
 The registry can be switched to [read-only mode][readonly] by setting
-the `storage-read-only` config item to `true`:
+the `storage-read-only` config option to `true`:
 
 ```bash
 juju config docker-registry storage-read-only=true
@@ -137,11 +137,30 @@ juju config docker-registry storage-read-only=true
 
 [readonly]: https://docs.docker.com/registry/configuration/#readonly
 
-This may be useful when performing maintenance, or for providing
-unauthenticated download access to the backend registry storage (for
-example, a Swift object storage cluster) with another deployment of
-the charm alongside configured with authentication and
-`storage-read-only` at the default value.
+This may be useful when performing maintenance or deploying an environment
+with complex authentication requirements.
+
+As an example, consider a scenario that requires unauthenticated pull
+and authenticated push access to the registry. This can be achieved by
+deploying this charm twice with the same storage backend (for example,
+a Swift object storage cluster):
+
+```bash
+juju deploy docker-registry public --config <storage-swift-opts>
+juju deploy docker-registry private --config <storage-swift-opts>
+```
+
+Configure the unauthenticated public registry to be read-only, and enable
+authentication for the private registry:
+
+```bash
+juju config public storage-read-only=true
+juju config private <auth-opts>
+```
+
+With a common storage backend and appropriate configuration, unauthenticated
+public users have a read-only view of the images pushed by authenticated
+private users.
 
 ### Swift Storage
 
