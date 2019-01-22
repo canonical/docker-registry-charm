@@ -48,7 +48,11 @@ def report_status():
             status_suffix = ' ({})'.format(', '.join(app_suffix))
         else:
             status_suffix = ''
-        layer.status.active('Listening on {}{}.'.format(netloc, status_suffix))
+
+        if is_flag_set('leadership.is_leader'):
+            layer.status.active('Listening on {}{}.'.format(netloc, status_suffix))
+        else:
+            layer.status.active('Backup listening on {}{}.'.format(netloc, status_suffix))
     else:
         layer.status.blocked('{} container is stopped.'.format(name))
 
@@ -223,6 +227,7 @@ def remove_certs():
 
 
 @when('charm.docker-registry.configured')
+@when('leadership.is_leader')
 @when('website.available')
 def update_reverseproxy_config():
     website = endpoint_from_flag('website.available')
