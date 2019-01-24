@@ -27,7 +27,7 @@ be enabled by deploying and relating to a TLS provider, such as `easyrsa`:
 juju deploy ~containers/docker-registry
 juju deploy ~containers/easyrsa
 
-juju relate easyrsa docker-registry
+juju add-relation easyrsa docker-registry
 ```
 
 This charm also supports configuration-based TLS, which does not require a
@@ -45,19 +45,46 @@ juju config docker-registry \
   tls-key-path=/home/ubuntu/cert.key
 ```
 
+Finally, custom TLS data may be provided as base64-encoded config options to
+the charm. The configured `tls-*-blob` data will be written to corresponding
+configured `tls-*-path` files:
+
+```bash
+juju config docker-registry \
+  tls-ca-blob=$(base64 /path/to/ca) \
+  tls-cert-blob=$(base64 /path/to/cert) \
+  tls-key-blob=$(base64 /path/to/key)
+```
+
 ### Proxied Registry
 
 This charm supports an `http` proxy relation that allows operators to
 control how the registry is exposed on the network. This is achieved by
-relating to a proxy provider, such as `haproxy`:
+relating to a proxy provider, such as `haproxy`.
+
+>Note: SSL pass-thru is not supported between `docker-registry` and `haproxy`.
+Any registry SSL configuration must be removed before creating the proxy
+relation. If SSL is desired in a proxied environment, the administrator must
+ensure certificates used by the proxy are configured on the appropriate target
+units.
+
+A proxied registry environment can be deployed as follows:
 
 ```bash
 juju deploy ~containers/docker-registry
 juju deploy haproxy
 
-juju relate haproxy docker-registry
-juju expose haproxy
+juju add-relation haproxy docker-registry
 ```
+
+When multiple `docker-registry` units are deployed, the proxy will be
+configured using the network information of the registry leader. This provides
+a highly available deployment that will fail over to a newly elected leader
+if the original leader becomes unavailable.
+
+>Note: With multiple registry units deployed, the proxy relation allows for a
+highly available deployment. Load balancing across multiple registry units is
+not supported.
 
 ### Nagios Monitoring
 
@@ -72,10 +99,10 @@ juju relate docker-registry nrpe
 
 ### Kubernetes Integration
 
-See the [Private Docker Registry][k8s-wiki] wiki for details on integrating
-this charm with Kubernetes.
+See the [Private Docker Registry][k8s-docs] documentation for details on
+integrating this charm with Kubernetes.
 
-[k8s-wiki]: https://github.com/juju-solutions/bundle-canonical-kubernetes/wiki/Private-Docker-Registry
+[k8s-docs]: https://www.ubuntu.com/kubernetes/docs/docker-registry
 
 ## Actions
 
@@ -179,7 +206,17 @@ juju config docker-registry \
 
 >Note: If any of the swift config options are set, they must all be set.
 
+Also note that if the swift container is empty, requests to the registry may
+return 503 errors like the following:
+
+```
+{"errors":[{"code":"UNAVAILABLE","message":"service unavailable","detail":"health check failed: please see /debug/health"}]}
+```
+
+Per https://github.com/docker/distribution/issues/2292, upload an empty file
+called "files" at the root of the container to workaround the issue.
+
 ## Contact
 
 The `docker-registry` charm is free and open source software created by the
-containers team at Canonical.
+~containers team at Canonical.
