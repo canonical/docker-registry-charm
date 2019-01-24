@@ -206,7 +206,17 @@ juju config docker-registry \
 
 >Note: If any of the swift config options are set, they must all be set.
 
+Also note that if the swift container is empty, requests to the registry may
+return 503 errors like the following:
+
+```
+{"errors":[{"code":"UNAVAILABLE","message":"service unavailable","detail":"health check failed: please see /debug/health"}]}
+```
+
+Per https://github.com/docker/distribution/issues/2292, upload an empty file
+called "files" at the root of the container to workaround the issue.
+
 ## Contact
 
 The `docker-registry` charm is free and open source software created by the
-containers team at Canonical.
+~containers team at Canonical.
