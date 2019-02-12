@@ -2,6 +2,7 @@ import base64
 import os
 
 from charmhelpers.core import hookenv
+from charmhelpers.contrib.hahelpers.cluster import peer_units, oldest_peer
 from charms.reactive import (
     endpoint_from_flag,
     set_flag,
@@ -49,10 +50,7 @@ def report_status():
         else:
             status_suffix = ''
 
-        if is_flag_set('leadership.is_leader'):
-            layer.status.active('Listening on {}{}.'.format(netloc, status_suffix))
-        else:
-            layer.status.active('Backup listening on {}{}.'.format(netloc, status_suffix))
+        layer.status.active('Listening on {}{}.'.format(netloc, status_suffix))
     else:
         layer.status.blocked('{} container is stopped.'.format(name))
 
@@ -227,11 +225,25 @@ def remove_certs():
 
 
 @when('charm.docker-registry.configured')
-@when('leadership.is_leader')
 @when('website.available')
 def update_reverseproxy_config():
+    '''Configure a reverse proxy.
+
+    The oldest known registry peer will be configured as the primary proxied
+    service. Other peers will be configured as backup services which can take
+    over if the primary fails.
+    '''
     website = endpoint_from_flag('website.available')
+    peers = peer_units(peer_relation="peer")
     port = hookenv.config().get('registry-port')
+
+    # NB: use oldest peer charmhelper versus leadership to determine primary
+    # vs backup servers:
+    #  https://bugs.launchpad.net/layer-docker-registry/+bug/1815459
+    server_opts = ["check", "inter 2000", "rise 2", "fall 5", "maxconn 4096"]
+    if not oldest_peer(peers):
+        server_opts.append("backup")
+
     services_yaml = """
 - service_name: %(app)s
   service_host: 0.0.0.0
@@ -241,15 +253,19 @@ def update_reverseproxy_config():
    - balance leastconn
    - option httpchk GET / HTTP/1.0
   servers:
-   - [%(unit)s, %(addr)s, %(port)s, 'check port %(port)s']
+   - [%(unit)s, %(addr)s, %(port)s, %(server_opts)s]
 """ % {
         'addr': hookenv.unit_private_ip(),
-        'port': port,
         'app': hookenv.application_name(),
+        'port': port,
+        'server_opts': " ".join(server_opts),
         'unit': hookenv.local_unit().replace('/', '-'),
     }
-    website.configure(port=port)
-    website.set_remote(all_services=services_yaml)
+    # Send stanza to the proxy on initial relation and when it changes.
+    # NB: interface uses configure() to set ip/host/port data.
+    if data_changed('proxy_stanza', services_yaml):
+        website.configure(port=port)
+        website.set_remote(services=services_yaml)
 
     # A proxy may change our netloc; if we have clients, tell them.
     netloc = layer.docker_registry.get_netloc()
