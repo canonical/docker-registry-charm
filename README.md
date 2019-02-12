@@ -78,13 +78,12 @@ juju add-relation haproxy docker-registry
 ```
 
 When multiple `docker-registry` units are deployed, the proxy will be
-configured using the network information of the registry leader. This provides
-a highly available deployment that will fail over to a newly elected leader
-if the original leader becomes unavailable.
+configured with one unit chosen as the primary proxied service with remaining
+units configured as backups. This provides a highly available deployment that
+will fail over to a backup if the primary service becomes unavailable.
 
->Note: With multiple registry units deployed, the proxy relation allows for a
-highly available deployment. Load balancing across multiple registry units is
-not supported.
+>Note: HA deployments require the proxy to be in `active-passive` peering
+mode, which is the default for `haproxy`.
 
 ### Nagios Monitoring
 
