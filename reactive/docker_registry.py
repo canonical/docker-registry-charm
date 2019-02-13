@@ -2,7 +2,7 @@ import base64
 import os
 
 from charmhelpers.core import hookenv
-from charmhelpers.contrib.hahelpers.cluster import peer_units, oldest_peer
+from charmhelpers.contrib.hahelpers.cluster import peer_ips
 from charms.reactive import (
     endpoint_from_flag,
     set_flag,
@@ -35,7 +35,8 @@ def report_status():
     app_suffix = []
     charm_config = hookenv.config()
     name = charm_config.get('registry-name')
-    netloc = layer.docker_registry.get_netloc()
+    local_addr = '{}:{}'.format(hookenv.unit_private_ip(),
+                                charm_config.get('registry-port'))
 
     if layer.docker_registry.is_container(name, all=False):
         if is_flag_set('charm.docker-registry.tls-enabled'):
@@ -45,12 +46,8 @@ def report_status():
         if is_flag_set('website.available'):
             app_suffix.append('proxied')
 
-        if app_suffix:
-            status_suffix = ' ({})'.format(', '.join(app_suffix))
-        else:
-            status_suffix = ''
-
-        layer.status.active('Listening on {}{}.'.format(netloc, status_suffix))
+        status_suffix = ' ({})'.format(', '.join(app_suffix))
+        layer.status.active('Ready at {}{}.'.format(local_addr, status_suffix))
     else:
         layer.status.blocked('{} container is stopped.'.format(name))
 
@@ -225,24 +222,41 @@ def remove_certs():
 
 
 @when('charm.docker-registry.configured')
+@when('leadership.is_leader')
 @when('website.available')
 def update_reverseproxy_config():
     '''Configure a reverse proxy.
 
-    The oldest known registry peer will be configured as the primary proxied
-    service. Other peers will be configured as backup services which can take
-    over if the primary fails.
+    The lead unit is responsible for setting appropriate proxy config for all
+    known registry peers. The oldest known peer will be configured as the
+    primary proxied server. Other peers will be configured as backup servers
+    which can take over if the primary fails.
     '''
     website = endpoint_from_flag('website.available')
-    peers = peer_units(peer_relation="peer")
     port = hookenv.config().get('registry-port')
 
-    # NB: use oldest peer charmhelper versus leadership to determine primary
-    # vs backup servers:
+    # Gather data about our peers, including ourself
+    peers = peer_ips(peer_relation="peer")
+    peers[hookenv.local_unit()] = hookenv.unit_private_ip()
+
+    # Construct a list of server stanzas
+    # NB: use oldest peer (the first unit name in our sorted peers list)
+    # versus juju leadership to determine primary vs backup servers:
     #  https://bugs.launchpad.net/layer-docker-registry/+bug/1815459
-    server_opts = ["check", "inter 2000", "rise 2", "fall 5", "maxconn 4096"]
-    if not oldest_peer(peers):
-        server_opts.append("backup")
+    common_opts = "check inter 2000 rise 2 fall 5 maxconn 4096"
+    is_primary = True
+    servers = []
+    for unit in sorted(peers):
+        if is_primary:
+            server_opts = common_opts
+            is_primary = False
+        else:
+            server_opts = common_opts + ' backup'
+        servers.append('   - [{name}, {ip}, {port}, {opts}]'.format(
+            name=unit.replace('/', '-'),
+            ip=peers[unit],
+            port=port,
+            opts=server_opts))
 
     services_yaml = """
 - service_name: %(app)s
@@ -253,17 +267,16 @@ def update_reverseproxy_config():
    - balance leastconn
    - option httpchk GET / HTTP/1.0
   servers:
-   - [%(unit)s, %(addr)s, %(port)s, %(server_opts)s]
+%(servers)s
 """ % {
-        'addr': hookenv.unit_private_ip(),
         'app': hookenv.application_name(),
         'port': port,
-        'server_opts': " ".join(server_opts),
-        'unit': hookenv.local_unit().replace('/', '-'),
+        'servers': "\n".join(servers),
     }
-    # Send stanza to the proxy on initial relation and when it changes.
-    # NB: interface uses configure() to set ip/host/port data.
+    # Send yaml to the proxy on initial relation and when it changes.
     if data_changed('proxy_stanza', services_yaml):
+        # NB: interface needs configure() to set ip/host/port data and
+        # set_remote for the blob of services.
         website.configure(port=port)
         website.set_remote(services=services_yaml)
 
