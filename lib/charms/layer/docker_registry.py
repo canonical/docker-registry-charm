@@ -42,7 +42,8 @@ def configure_registry():
     # http (https://docs.docker.com/registry/configuration/#http)
     port = charm_config.get('registry-port')
     http = {'addr': '0.0.0.0:{}'.format(port),
-            'headers': {'X-Content-Type-Options': ['nosniff']}}
+            'headers': {'X-Content-Type-Options': ['nosniff']},
+            'relativeurls': 'true'}
     if charm_config.get('http-host'):
         http['host'] = charm_config['http-host']
     http_secret = leader_get('http-secret')
