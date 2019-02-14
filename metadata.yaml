@@ -18,3 +18,6 @@ provides:
 requires:
   cert-provider:
     interface: tls-certificates
+peers:
+  peer:
+    interface: peer-discovery
