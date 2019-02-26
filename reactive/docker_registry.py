@@ -292,6 +292,7 @@ def update_reverseproxy_config():
         website.set_remote(all_services=None)
         set_flag('charm.docker-registry.proxy-data.validated')
 
+
 @when('charm.docker-registry.configured')
 @when('nrpe-external-master.available')
 def setup_nagios():
