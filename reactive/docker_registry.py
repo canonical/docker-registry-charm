@@ -286,6 +286,11 @@ def update_reverseproxy_config():
             data_changed('proxy_netloc', netloc)):
         configure_client()
 
+    # Early versions of this charm incorrectly set an 'all_services'
+    # key on the relation. Kill it.
+    if not is_flag_set('charm.docker-registry.proxy-data.validated'):
+        website.set_remote(all_services=None)
+        set_flag('charm.docker-registry.proxy-data.validated')
 
 @when('charm.docker-registry.configured')
 @when('nrpe-external-master.available')
