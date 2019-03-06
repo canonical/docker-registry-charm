@@ -299,8 +299,8 @@ def update_reverseproxy_config():
 def remove_reverseproxy_config():
     '''Remove reverse proxy config.
 
-    The lead unit is responsible for setting appropriate proxy config. If the
-    proxy relation is removed, manage cached proxy data and client config.
+    The lead unit is responsible for setting appropriate proxy config. When
+    the proxy relation is removed, manage cached proxy data and client config.
     '''
     # Clear cache so a subsequent join will send config to the new proxy
     data_changed('proxy_stanza', None)
