@@ -294,6 +294,27 @@ def update_reverseproxy_config():
 
 
 @when('charm.docker-registry.configured')
+@when('leadership.is_leader')
+@when('endpoint.website.departed')
+def remove_reverseproxy_config():
+    '''Remove reverse proxy config.
+
+    The lead unit is responsible for setting appropriate proxy config. When
+    the proxy relation is removed, manage cached proxy data and client config.
+    '''
+    # Clear cache so a subsequent join will send config to the new proxy
+    data_changed('proxy_stanza', None)
+
+    # Losing a proxy may change our netloc; if we have clients, tell them.
+    netloc = layer.docker_registry.get_netloc()
+    if (is_flag_set('charm.docker-registry.client-configured') and
+            data_changed('proxy_netloc', netloc)):
+        configure_client()
+
+    clear_flag('endpoint.website.departed')
+
+
+@when('charm.docker-registry.configured')
 @when('nrpe-external-master.available')
 def setup_nagios():
     '''Update the NRPE configuration for the given service.'''
