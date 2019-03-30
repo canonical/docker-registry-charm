@@ -61,7 +61,6 @@ options:
     description: The URL of the keystone used to authenticate to swift.
   storage-swift-container:
     type: string
-    default: ""
     default: docker-registry
     description: The name of the swift container that will hold the images.
   storage-swift-password:
