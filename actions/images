@@ -1,0 +1,38 @@
+#!/usr/local/sbin/charm-env python3
+
+import sys
+from subprocess import check_output, CalledProcessError, STDOUT
+
+from charmhelpers.core import hookenv
+from charms import layer
+from charms.reactive import is_flag_set
+
+layer.import_layer_libs()
+
+# start reactive
+hookenv._run_atstart()
+
+
+def fail(msg):
+    hookenv.action_fail(msg)
+    sys.exit()
+
+
+if not is_flag_set('charm.docker-registry.configured'):
+    fail('Docker Registry charm is not yet ready.')
+
+cmd = ['docker', 'images']
+options = hookenv.action_get('options')
+if options:
+    cmd.extend(options.split())
+repo = hookenv.action_get('repository')
+if repo:
+    cmd.append(repo)
+
+try:
+    r = check_output(cmd, stderr=STDOUT).decode('utf-8')
+except CalledProcessError as e:
+    fail("{} failed with: {}".format(e.cmd, e.output.decode('utf-8')))
+else:
+    hookenv.action_set({'outcome': 'success'})
+    hookenv.action_set({'output': r})
