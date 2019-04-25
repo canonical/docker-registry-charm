@@ -51,10 +51,18 @@ options:
     type: int
     default: 5000
     description: The external port on which the docker registry listens.
+  storage-delete:
+    type: boolean
+    default: false
+    description: |
+      Enable/disable the "delete" storage option. False, the default, disables
+      this option in the registry config file.
   storage-read-only:
     type: boolean
     default: false
-    description: Controls the storage maintenance option "readonly".
+    description: |
+      Enable/disable the "readonly" storage maintenance option. False, the
+      default, disables this option in the registry config file.
   storage-swift-authurl:
     type: string
     default: ""

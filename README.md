@@ -189,16 +189,29 @@ juju config docker-registry \
   auth-token-service='myapp'
 ```
 
+### Delete by digest
+
+The recommended way to delete images from the reigstry is to use the `rmi`
+action. If necessary, this charm can be configured to
+[allow deletion][storage-delete] of blobs and manifests by digest by setting
+the `storage-delete` config option to `true`:
+
+```bash
+juju config docker-registry storage-delete=true
+```
+
+[storage-delete]: https://docs.docker.com/registry/configuration/#delete
+
 ### Read-Only Mode
 
-The registry can be switched to [read-only mode][readonly] by setting
+The registry can be switched to [read-only mode][storage-readonly] by setting
 the `storage-read-only` config option to `true`:
 
 ```bash
 juju config docker-registry storage-read-only=true
 ```
 
-[readonly]: https://docs.docker.com/registry/configuration/#readonly
+[storage-readonly]: https://docs.docker.com/registry/configuration/#readonly
 
 This may be useful when performing maintenance or deploying an environment
 with complex authentication requirements.
