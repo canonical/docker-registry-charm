@@ -1,6 +1,7 @@
 #!/usr/local/sbin/charm-env python3
 
 import sys
+from shlex import split
 from subprocess import check_output, CalledProcessError, STDOUT
 
 from charmhelpers.core import hookenv
@@ -24,7 +25,7 @@ if not is_flag_set('charm.docker-registry.configured'):
 cmd = ['docker', 'images']
 options = hookenv.action_get('options')
 if options:
-    cmd.extend(options.split())
+    cmd.extend(split(options))
 repo = hookenv.action_get('repository')
 if repo:
     cmd.append(repo)
@@ -32,7 +33,7 @@ if repo:
 try:
     r = check_output(cmd, stderr=STDOUT).decode('utf-8')
 except CalledProcessError as e:
-    fail("{} failed with: {}".format(e.cmd, e.output.decode('utf-8')))
+    fail('"{}" failed with:\n{}'.format(
+        ' '.join(e.cmd), e.output.decode('utf-8')))
 else:
-    hookenv.action_set({'outcome': 'success'})
     hookenv.action_set({'output': r})

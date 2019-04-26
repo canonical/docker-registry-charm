@@ -55,7 +55,8 @@ rmi:
       type: string
       default: ''
       description: |
-        Image name (or space separated names) to remove.
+        Image (or space separated images) to remove. This can be be an image
+        id, tag, or digest.
   required: [image]
   additionalProperties: false
 start:
