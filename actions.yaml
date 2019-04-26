@@ -1,6 +1,24 @@
+images:
+  description: |
+    List images known by this registry.
+  params:
+    options:
+      type: string
+      default: ''
+      description: |
+        Space separated options to pass to the underlying 'docker images'
+        command. For example, to list all images (including intermediates)
+        along with digests, run this action with 'options="--all --digests"'.
+    repository:
+      type: string
+      default: ''
+      description: |
+        Optional [REPOSITORY[:TAG]] to list images in a given repository. If
+        unspecified, all images known to the registry are listed.
+  additionalProperties: false
 push:
   description: |
-    Tag and push an image to this repository.
+    Tag and push an image to this registry.
   params:
     image:
       type: string
@@ -8,8 +26,8 @@ push:
       description: |
         Image name, which may include an optional :version string. If the
         version is omitted, docker will assume ':latest'. This may be an
-        unqualified local image (e.g. pause-amd64:3.1) or a fully qualified
-        remote URL (e.g. https://k8s.gcr.io/pause-amd64:3.1).
+        unqualified local image (e.g. ubuntu:18.04) or a fully qualified
+        remote registry (e.g. myregistry.example.com:5000/myimage:latest).
     pull:
       type: boolean
       default: true
@@ -22,30 +40,47 @@ push:
         'net_location/name:version'.
   required: [image]
   additionalProperties: false
+rmi:
+  description: |
+    Remove image(s) from this registry.
+  params:
+    options:
+      type: string
+      default: ''
+      description: |
+        Space separated options to pass to the underlying 'docker rmi'
+        command. For example, to force image removal, run this action with
+        'options="--force"'.
+    image:
+      type: string
+      default: ''
+      description: |
+        Image (or space separated images) to remove. This can be be an image
+        id, tag, or digest.
+  required: [image]
+  additionalProperties: false
 start:
   description: |
-    Start a named docker container.
+    Start a named registry container. With no arguments, this action starts
+    the registry container configured by the charm 'registry-name' option.
   params:
     name:
       type: string
       default: ''
-      description: |
-        Name of the container to start. If not specified, the action will
-        attempt to start the configured 'registry-name' container.
+      description: Optional name of the registry container to start.
   additionalProperties: false
 stop:
   description: |
-    Stop a named docker container.
+    Stop a named registry container. With no arguments, this action stops
+    the registry container configured by the charm 'registry-name' option.
   params:
     name:
       type: string
       default: ''
-      description: |
-        Name of the container to stop. If not specified, the action will
-        attempt to stop the configured 'registry-name' container.
+      description: Optional name of the registry container to stop.
     remove:
       type: boolean
       default: true
       description: |
-        Remove the named container after stopping.
+        Remove the registry container after stopping.
   additionalProperties: false

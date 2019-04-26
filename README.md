@@ -1,7 +1,7 @@
 # Introduction
 
-This charm provides storage and distribution of docker images. See
-https://docs.docker.com/registry/ for details.
+This charm provides a registry for storage and distribution of docker images.
+See https://docs.docker.com/registry/ for details.
 
 ## Deployment
 
@@ -105,7 +105,7 @@ integrating this charm with Kubernetes.
 
 ## Actions
 
-### Hosting Images
+### Adding Images
 
 To make an image available in the deployed registry, it must be tagged and
 pushed. This charm provides the `push` action to do this:
@@ -122,6 +122,43 @@ given `image` and subsequently tag/push it.
 The default image tag is 'net_loc/name:version', where 'net_loc' is the
 `http-host` config option or http[s]://[private-ip]:[port] if config is not
 set. The image tag can be overriden by specifying the `tag` action parameter.
+
+### Listing Images
+
+List images known to the registry with the `images` action:
+
+```bash
+juju run-action --wait docker-registry/0 images \
+  options=<extra-args> repository=<repository[:tag]>
+```
+
+This runs `docker images` on the registry machine. The optional `options` and
+`repository` parameters are passed through to the underlying command. For
+example, show non-truncated output with numeric image IDs:
+
+```bash
+juju run-action --wait docker-registry/0 images \
+  options="--no-trunc --quiet"
+```
+
+### Removing Images
+
+Remove images from the registry with the `rmi` action:
+
+```bash
+juju run-action --wait docker-registry/0 rmi \
+  options=<extra-args> image=<image [image...]>
+```
+
+This runs `docker rmi` on the registry machine. The image name (or space
+separated names) must be specified using the `image` parameter. The optional
+`options` parameter is passed through to the underlying command. For
+example, remove the ubuntu:18.04 image without deleting untagged parents:
+
+```bash
+juju run-action --wait docker-registry/0 rmi \
+  options="--no-prune" image="ubuntu:18.04"
+```
 
 ### Starting/Stopping
 
