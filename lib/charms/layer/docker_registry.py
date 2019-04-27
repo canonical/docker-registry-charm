@@ -20,9 +20,9 @@ def configure_registry():
     registry_config = {'version': '0.1'}
     registry_config_file = '/etc/docker/registry/config.yml'
 
-    # Some files need to be volume mounted in the container. Keep track of
+    # Some things need to be volume mounted in the container. Keep track of
     # those (recreate each time we configure). Regardless of the src location,
-    # we explicitly mount them in the container under /etc/docker/registry.
+    # we explicitly mount config in the container under /etc/docker/registry.
     kv = unitdata.kv()
     kv.unset('docker_volumes')
     docker_volumes = {registry_config_file: '/etc/docker/registry/config.yml'}
@@ -101,8 +101,18 @@ def configure_registry():
         }
         storage['redirect'] = {'disable': True}
     else:
-        storage['filesystem'] = {'rootdirectory': '/var/lib/registry'}
+        # If we're not swift, we're local.
+        container_registry_path = '/var/lib/registry'
+        storage['filesystem'] = {'rootdirectory': container_registry_path}
         storage['cache'] = {'blobdescriptor': 'inmemory'}
+
+        # Local storage is mounted from the host so images persist across
+        # registry container restarts.
+        host_registry_path = '/srv/registry'
+        os.makedirs(host_registry_path, exist_ok=True)
+        docker_volumes[host_registry_path] = container_registry_path
+    if charm_config.get('storage-delete'):
+        storage['delete'] = {'enabled': True}
     if charm_config.get('storage-read-only'):
         storage['maintenance'] = {'readonly': {'enabled': True}}
     registry_config['storage'] = storage
