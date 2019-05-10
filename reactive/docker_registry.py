@@ -287,23 +287,27 @@ def update_reverseproxy_config():
         configure_client()
 
     # Early versions of this charm incorrectly set an 'all_services'
-    # key on the relation. Kill it.
+    # key on the website relation. Kill it.
     if not is_flag_set('charm.docker-registry.proxy-data.validated'):
         website.set_remote(all_services=None)
         set_flag('charm.docker-registry.proxy-data.validated')
+
+    # Ensure we'll validate website relation data from a follower perspective
+    # if we ever lose leadership.
+    clear_flag('charm.docker-registry.proxy-follower.validated')
 
 
 @when('charm.docker-registry.configured')
 @when('website.available')
 @when_not('leadership.is_leader')
+@when_not('charm.docker-registry.proxy-follower.validated')
 def validate_follower_reverseproxy():
     '''Remove invalid reverseproxy config for non-leader units.'''
     # Early versions of this charm (rev 80ish) incorrectly set website config
     # for follower units. Clean that up.
     website = endpoint_from_flag('website.available')
-    if not is_flag_set('charm.docker-registry.proxy-data.validated'):
-        website.set_remote(all_services=None, hostname=None, port=None)
-        set_flag('charm.docker-registry.proxy-data.validated')
+    website.set_remote(all_services=None, hostname=None, port=None)
+    set_flag('charm.docker-registry.proxy-follower.validated')
 
 
 @when('charm.docker-registry.configured')
