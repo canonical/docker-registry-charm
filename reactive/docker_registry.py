@@ -294,6 +294,19 @@ def update_reverseproxy_config():
 
 
 @when('charm.docker-registry.configured')
+@when('website.available')
+@when_not('leadership.is_leader')
+def validate_follower_reverseproxy():
+    '''Remove invalid reverseproxy config for non-leader units.'''
+    # Early versions of this charm (rev 80ish) incorrectly set website config
+    # for follower units. Clean that up.
+    website = endpoint_from_flag('website.available')
+    if not is_flag_set('charm.docker-registry.proxy-data.validated'):
+        website.set_remote(all_services=None, hostname=None, port=None)
+        set_flag('charm.docker-registry.proxy-data.validated')
+
+
+@when('charm.docker-registry.configured')
 @when('leadership.is_leader')
 @when('endpoint.website.departed')
 def remove_reverseproxy_config():
