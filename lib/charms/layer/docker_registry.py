@@ -121,7 +121,7 @@ def configure_registry():
     host.write_file(
         registry_config_file,
         yaml.safe_dump(registry_config),
-        perms=0o644,
+        perms=0o600,
     )
 
     # NB: all hooks will flush, but do an explicit one now in case we call
