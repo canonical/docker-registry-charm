@@ -1,4 +1,5 @@
 name: docker-registry
+display-name: Docker Registry Charm
 summary: Registry for docker images
 maintainer: Kevin Monroe <kevin.monroe@canonical.com>
 description: Service for hosting docker images

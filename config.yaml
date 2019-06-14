@@ -87,6 +87,14 @@ options:
     type: string
     default: ""
     description: The username to use to access swift.
+  storage-swift-domain:
+    type: string
+    default: ""
+    description: Openstack Identity v3 API domain.
+  storage-swift-domainid:
+    type: string
+    default: ""
+    description: Openstack Identity v3 API domain ID.
   tls-ca-blob:
     type: string
     default: ""

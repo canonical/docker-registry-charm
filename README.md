@@ -255,6 +255,14 @@ juju config docker-registry \
 
 >Note: If any of the swift config options are set, they must all be set.
 
+It is possible to configure for domain & domainid. If both are specified then domain will be the default.
+To configure use keys:
+```
+storage-swift-domain=<val>
+or
+storage-swift-domainid=<val>
+```
+
 Also note that if the swift container is empty, requests to the registry may
 return 503 errors like the following:
 
@@ -264,6 +272,8 @@ return 503 errors like the following:
 
 Per https://github.com/docker/distribution/issues/2292, upload an empty file
 called "files" at the root of the container to workaround the issue.
+
+For more details on the swift driver configuration see [here for more details.](https://github.com/docker/docker.github.io/blob/master/registry/storage-drivers/swift.md) 
 
 ## Contact
 
