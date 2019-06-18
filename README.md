@@ -58,19 +58,17 @@ juju config docker-registry \
 
 ### Proxied Registry
 
-This charm supports an `http` proxy relation that allows operators to
+This charm supports `http` and `tcp` proxy relation that allows operators to
 control how the registry is exposed on the network. This is achieved by
 relating to a proxy provider, such as `haproxy`.
 
->Note: SSL pass-thru is not supported between `docker-registry` and `haproxy`.
-Any registry SSL configuration must be removed before creating the proxy
-relation. If SSL is desired in a proxied environment, the administrator must
-ensure certificates used by the proxy are configured on the appropriate target
+>Note: SSL pass-thru is supported between `docker-registry` and `haproxy`.
+Although it does not verify the certificates; if you use SSL with this charm it is recommended you use trusted certificates on the appropriate target
 units.
 
 A proxied registry environment can be deployed as follows:
 
-```bash
+```bashs
 juju deploy ~containers/docker-registry
 juju deploy haproxy
 
