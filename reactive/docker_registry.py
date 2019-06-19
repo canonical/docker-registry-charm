@@ -247,8 +247,8 @@ def update_reverseproxy_config():
     common_opts = "check inter 2000 rise 2 fall 5 maxconn 4096"
     is_primary = True
     tls_ops = ""
-    if is_flag_set('config.set.tls-ca-blob') or \
-        is_flag_set('config.set.tls-ca-path'):
+    if is_flag_set('config.set.tls-cert-blob') or \
+        is_flag_set('config.set.tls-cert-path'):
         tls_ops = "ssl verify none"
     servers = []
     for unit in sorted(peers):
@@ -269,13 +269,12 @@ def update_reverseproxy_config():
   service_host: 0.0.0.0
   service_port: %(port)s
   service_options:
-   - mode %(mode)s
+   - mode http
    - balance leastconn
    - option httpchk GET / HTTP/1.0
   servers:
 %(servers)s
 """ % {
-        'mode': "http" if tls_ops is None else "tcp",
         'app': hookenv.application_name(),
         'port': port,
         'servers': "\n".join(servers),
