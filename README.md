@@ -62,11 +62,11 @@ This charm supports `http` and `tcp` proxy relation that allows operators to
 control how the registry is exposed on the network. This is achieved by
 relating to a proxy provider, such as `haproxy`.
 
->Note: SSL is supported between `docker-registry` and `haproxy`.
-Although it does not verify the certificates; if you use SSL with this charm it is recommended you use trusted certificates on the appropriate target
-units.
+#### TLS/SSL
+TLS is supported between `docker-registry` and `haproxy`.
+Although it is not yet supported with easyrsa, in order implement TLS you will need to remove any easyrsa relation on `docker-registry` then manually supply certs to [`haproxy`](https://bazaar.launchpad.net/~haproxy-team/charm-haproxy/trunk/view/head:/config.yaml) and [`docker-registry`](https://github.com/CanonicalLtd/docker-registry-charm/blob/master/config.yaml).
 
-A proxied registry environment can be deployed as follows:
+These certificates used should come from a CA trusted by default in Ubuntu.
 
 ```bashs
 juju deploy ~containers/docker-registry

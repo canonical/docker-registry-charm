@@ -247,8 +247,10 @@ def update_reverseproxy_config():
     common_opts = "check inter 2000 rise 2 fall 5 maxconn 4096"
     is_primary = True
     tls_ops = ""
-    if is_flag_set('config.set.tls-cert-blob') or \
-        is_flag_set('config.set.tls-cert-path'):
+    if (
+        is_flag_set('config.set.tls-cert-path') and
+        is_flag_set('config.set.tls-key-path')
+    ):
         tls_ops = "ssl verify none"
     servers = []
     for unit in sorted(peers):
