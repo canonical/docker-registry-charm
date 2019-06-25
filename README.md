@@ -255,8 +255,7 @@ juju config docker-registry \
 
 >Note: If any of the above config options are set, then they must all be set. Optional params are noted below.
 
-It is possible to configure for domain & domainid. If both are specified then domain will be the default.
-To configure use keys:
+It is possible to configure the swift backend with an Openstack domain name for Identity v3. To enable this, set the following optional config parameter:
 ```
 storage-swift-domain=<val>
 ```
