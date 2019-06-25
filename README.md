@@ -58,17 +58,16 @@ juju config docker-registry \
 
 ### Proxied Registry
 
-This charm supports `http` and `tcp` proxy relation that allows operators to
+This charm supports `http` proxy relation that allows operators to
 control how the registry is exposed on the network. This is achieved by
 relating to a proxy provider, such as `haproxy`.
 
 #### TLS/SSL
-TLS is supported between `docker-registry` and `haproxy`.
-Although it is not yet supported with easyrsa, in order implement TLS you will need to remove any easyrsa relation on `docker-registry` then manually supply certs to [`haproxy`](https://bazaar.launchpad.net/~haproxy-team/charm-haproxy/trunk/view/head:/config.yaml) and [`docker-registry`](https://github.com/CanonicalLtd/docker-registry-charm/blob/master/config.yaml).
+TLS is supported between `docker-registry` and `haproxy`, however it is not yet supported with easyrsa. In order implement TLS you will need to remove any easyrsa relation on `docker-registry` then manually supply certs to [`haproxy`](https://bazaar.launchpad.net/~haproxy-team/charm-haproxy/trunk/view/head:/config.yaml) and [`docker-registry`](https://github.com/CanonicalLtd/docker-registry-charm/blob/master/config.yaml).
 
-These certificates used should come from a CA trusted by default in Ubuntu.
+The certificates used should come from a CA trusted by default in Ubuntu.
 
-```bashs
+```bash
 juju deploy ~containers/docker-registry
 juju deploy haproxy
 

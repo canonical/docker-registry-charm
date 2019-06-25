@@ -246,12 +246,12 @@ def update_reverseproxy_config():
     #  https://bugs.launchpad.net/layer-docker-registry/+bug/1815459
     common_opts = "check inter 2000 rise 2 fall 5 maxconn 4096"
     is_primary = True
-    tls_ops = ""
+    tls_opts = ""
     if (
-        is_flag_set('config.set.tls-cert-path') and
-        is_flag_set('config.set.tls-key-path')
+        is_flag_set('config.set.tls-cert-blob') and
+        is_flag_set('config.set.tls-key-blob')
     ):
-        tls_ops = "ssl verify none"
+        tls_opts = "ssl verify required"
     servers = []
     for unit in sorted(peers):
         if is_primary:
@@ -259,7 +259,7 @@ def update_reverseproxy_config():
             is_primary = False
         else:
             server_opts = common_opts + ' backup'
-        server_opts = "{} {}".format(server_opts, tls_ops)
+        server_opts = "{} {}".format(server_opts, tls_opts)
         servers.append('   - [{name}, {ip}, {port}, {opts}]'.format(
             name=unit.replace('/', '-'),
             ip=peers[unit],
