@@ -251,7 +251,7 @@ def update_reverseproxy_config():
         is_flag_set('config.set.tls-cert-blob') and
         is_flag_set('config.set.tls-key-blob')
     ):
-        tls_opts = "ssl verify required"
+        tls_opts = "ssl check-ssl crt /var/lib/haproxy/default.pem ca-file %s verify required" % (hookenv.config().get('tls-ca-path'))
     servers = []
     for unit in sorted(peers):
         if is_primary:
@@ -271,12 +271,13 @@ def update_reverseproxy_config():
   service_host: 0.0.0.0
   service_port: %(port)s
   service_options:
-   - mode http
+   - mode %(mode)s
    - balance leastconn
    - option httpchk GET / HTTP/1.0
   servers:
 %(servers)s
 """ % {
+        'mode': 'tcp' if tls_opts is not '' else 'http',
         'app': hookenv.application_name(),
         'port': port,
         'servers': "\n".join(servers),

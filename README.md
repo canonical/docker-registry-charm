@@ -63,9 +63,25 @@ control how the registry is exposed on the network. This is achieved by
 relating to a proxy provider, such as `haproxy`.
 
 #### TLS/SSL
-TLS is supported between `docker-registry` and `haproxy`, however it is not yet supported with easyrsa. In order implement TLS you will need to remove any easyrsa relation on `docker-registry` then manually supply certs to [`haproxy`](https://bazaar.launchpad.net/~haproxy-team/charm-haproxy/trunk/view/head:/config.yaml) and [`docker-registry`](https://github.com/CanonicalLtd/docker-registry-charm/blob/master/config.yaml).
+TLS is supported between `haproxy` and `docker-registry` although some manual configuration is required.
 
-The certificates used should come from a CA trusted by default in Ubuntu.
+You will be required to create the directory structure suppled to the `docker-registry` charm config `tls-ca-path` and copy your proxy's PEM, along with your CAs certificate to that directory.
+
+By default charm config is set to `/etc/docker/registry` to check you can run: `juju config --model <YOURMODEL> docker-registry`.
+
+The steps to configure are set out below:
+```
+1. juju ssh haproxy/$UNIT_NUM
+2. mkdir -p <$TLS_CA_PATH>
+3. (Might not be required): chown -R ubuntu:ubuntu <$TLS_CA_PATH>
+4. ctrl+d
+5a. juju config haproxy ssl_key=$BASE64_PROXY_KEY ssl_cert=$BASE64_PROXY_CERT
+5b. juju scp <CA.crt> haproxy/$UNIT_NUM:<$TLS_CA_PATH>/
+6. juju resolve haproxy/$UNIT_NUM
+```
+
+haproxy should now come back up.
+> Please note depending on your certificates you may be required to add the proxy to your insecure registries in [`daemon.json`](https://docs.docker.com/registry/insecure/)
 
 ```bash
 juju deploy ~containers/docker-registry
