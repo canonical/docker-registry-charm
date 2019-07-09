@@ -99,6 +99,12 @@ def configure_registry():
             'container': charm_config.get('storage-swift-container', ''),
             'tenant': charm_config.get('storage-swift-tenant', ''),
         }
+
+        # Openstack Domain settings (https://github.com/docker/docker.github.io/blob/master/registry/storage-drivers/swift.md)
+        val = charm_config.get('storage-swift-domain', '')
+        if val is not '':
+            storage['swift'].update({'domain': val})
+
         storage['redirect'] = {'disable': True}
     else:
         # If we're not swift, we're local.
