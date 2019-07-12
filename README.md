@@ -15,7 +15,7 @@ with clients that implement the [docker-registry][interface] interface.
 For testing purposes, a simple, insecure registry can be deployed with:
 
 ```bash
-juju deploy ~containers/docker-registry
+juju deploy cs:~containers/docker-registry
 ```
 
 ### Secure Registry with TLS
@@ -24,8 +24,8 @@ This charm supports TLS via the `tls-certificates` relation. This can
 be enabled by deploying and relating to a TLS provider, such as `easyrsa`:
 
 ```bash
-juju deploy ~containers/docker-registry
-juju deploy ~containers/easyrsa
+juju deploy cs:~containers/docker-registry
+juju deploy cs:~containers/easyrsa
 
 juju add-relation easyrsa docker-registry
 ```
@@ -71,7 +71,7 @@ units.
 A proxied registry environment can be deployed as follows:
 
 ```bash
-juju deploy ~containers/docker-registry
+juju deploy cs:~containers/docker-registry
 juju deploy haproxy
 
 juju add-relation haproxy docker-registry
@@ -90,7 +90,7 @@ mode, which is the default for `haproxy`.
 This charm supports monitoring with nagios:
 
 ```bash
-juju deploy ~containers/docker-registry
+juju deploy cs:~containers/docker-registry
 juju deploy nrpe --series bionic
 
 juju relate docker-registry nrpe
