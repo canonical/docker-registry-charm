@@ -58,17 +58,30 @@ juju config docker-registry \
 
 ### Proxied Registry
 
-This charm supports an `http` proxy relation that allows operators to
+This charm supports `http` proxy relation that allows operators to
 control how the registry is exposed on the network. This is achieved by
 relating to a proxy provider, such as `haproxy`.
 
->Note: SSL pass-thru is not supported between `docker-registry` and `haproxy`.
-Any registry SSL configuration must be removed before creating the proxy
-relation. If SSL is desired in a proxied environment, the administrator must
-ensure certificates used by the proxy are configured on the appropriate target
-units.
+#### TLS/SSL
+TLS is supported between `haproxy` and `docker-registry` although some manual configuration is required.
 
-A proxied registry environment can be deployed as follows:
+You will be required to create the directory structure suppled to the `docker-registry` charm config `tls-ca-path` and copy your proxy's PEM, along with your CAs certificate to that directory.
+
+By default charm config is set to `/etc/docker/registry` to check you can run: `juju config --model <YOURMODEL> docker-registry`.
+
+The steps to configure are set out below:
+```
+1. juju ssh haproxy/$UNIT_NUM
+2. mkdir -p <$TLS_CA_PATH>
+3. (Might not be required): chown -R ubuntu:ubuntu <$TLS_CA_PATH>
+4. ctrl+d
+5a. juju config haproxy ssl_key=$BASE64_PROXY_KEY ssl_cert=$BASE64_PROXY_CERT
+5b. juju scp <CA.crt> haproxy/$UNIT_NUM:<$TLS_CA_PATH>/
+6. juju resolve haproxy/$UNIT_NUM
+```
+
+haproxy should now come back up.
+> Please note depending on your certificates you may be required to add the proxy to your insecure registries in [`daemon.json`](https://docs.docker.com/registry/insecure/)
 
 ```bash
 juju deploy cs:~containers/docker-registry

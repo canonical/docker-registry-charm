@@ -246,6 +246,12 @@ def update_reverseproxy_config():
     #  https://bugs.launchpad.net/layer-docker-registry/+bug/1815459
     common_opts = "check inter 2000 rise 2 fall 5 maxconn 4096"
     is_primary = True
+    tls_opts = ""
+    if (
+        is_flag_set('config.set.tls-cert-blob') and
+        is_flag_set('config.set.tls-key-blob')
+    ):
+        tls_opts = "ssl check-ssl crt /var/lib/haproxy/default.pem ca-file %s verify required" % (hookenv.config().get('tls-ca-path'))
     servers = []
     for unit in sorted(peers):
         if is_primary:
@@ -253,6 +259,7 @@ def update_reverseproxy_config():
             is_primary = False
         else:
             server_opts = common_opts + ' backup'
+        server_opts = "{} {}".format(server_opts, tls_opts)
         servers.append('   - [{name}, {ip}, {port}, {opts}]'.format(
             name=unit.replace('/', '-'),
             ip=peers[unit],
@@ -264,12 +271,13 @@ def update_reverseproxy_config():
   service_host: 0.0.0.0
   service_port: %(port)s
   service_options:
-   - mode http
+   - mode %(mode)s
    - balance leastconn
    - option httpchk GET / HTTP/1.0
   servers:
 %(servers)s
 """ % {
+        'mode': 'tcp' if tls_opts is not '' else 'http',
         'app': hookenv.application_name(),
         'port': port,
         'servers': "\n".join(servers),
