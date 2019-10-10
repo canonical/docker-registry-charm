@@ -9,6 +9,7 @@ from shutil import rmtree
 from urllib.parse import urlparse
 
 from charmhelpers.core import hookenv, host, templating, unitdata
+from charms.layer import docker
 from charms.leadership import leader_get
 from charms.reactive import endpoint_from_flag, is_flag_set
 from charms.reactive.helpers import any_file_changed, data_changed
@@ -147,8 +148,6 @@ def _configure_local_client():
     # client config depends on whether the registry is secure or insecure
     netloc = get_netloc()
     if is_flag_set('charm.docker-registry.tls-enabled'):
-        insecure_registry = ''
-
         # if our ca changed, install it into the default sys location
         # (docker client > 1.13 will use this)
         tls_ca = charm_config.get('tls-ca-path', '')
@@ -174,11 +173,11 @@ def _configure_local_client():
             tls_key_link = '{}/client.key'.format(client_tls_dst)
             _remove_if_exists(tls_key_link)
             os.symlink(tls_key, tls_key_link)
-    else:
-        insecure_registry = '"{}"'.format(netloc)
 
-    templating.render('daemon.json', '/etc/docker/daemon.json',
-                      {'registries': insecure_registry})
+        docker.delete_daemon_json('insecure-registries')
+    else:
+        docker.set_daemon_json('insecure-registries', [netloc])
+
     host.service_restart('docker')
 
 
