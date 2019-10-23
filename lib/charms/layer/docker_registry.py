@@ -8,7 +8,7 @@ from pathlib import Path
 from shutil import rmtree
 from urllib.parse import urlparse
 
-from charmhelpers.core import hookenv, host, templating, unitdata
+from charmhelpers.core import hookenv, host, unitdata
 from charms.layer import docker
 from charms.leadership import leader_get
 from charms.reactive import endpoint_from_flag, is_flag_set
@@ -37,7 +37,8 @@ def configure_registry():
     auth_token = _get_auth_token()
     if auth_token:
         auth['token'] = auth_token
-        docker_volumes[auth_token['rootcertbundle']] = '/etc/docker/registry/auth_token.pem'
+        docker_volumes[auth_token['rootcertbundle']] = \
+            '/etc/docker/registry/auth_token.pem'
     registry_config['auth'] = auth
 
     # http (https://docs.docker.com/registry/configuration/#http)
@@ -101,9 +102,10 @@ def configure_registry():
             'tenant': charm_config.get('storage-swift-tenant', ''),
         }
 
-        # Openstack Domain settings (https://github.com/docker/docker.github.io/blob/master/registry/storage-drivers/swift.md)
+        # Openstack Domain settings
+        # (https://docs.docker.com/registry/storage-drivers/swift/)
         val = charm_config.get('storage-swift-domain', '')
-        if val is not '':
+        if val != '':
             storage['swift'].update({'domain': val})
 
         storage['redirect'] = {'disable': True}
@@ -419,9 +421,10 @@ def start_registry(name=None, run_args=None):
                         level=hookenv.ERROR)
             raise
     else:
-        # NB: config determines the port, but the container always listens to 5000 internally
+        # NB: config determines the port, but the container always listens to 5000
         # https://docs.docker.com/registry/deploying/#customize-the-published-port
-        cmd = ['docker', 'run', '-d', '-p', '{}:5000'.format(port), '--restart', 'unless-stopped']
+        cmd = ['docker', 'run', '-d', '-p', '{}:5000'.format(port),
+               '--restart', 'unless-stopped']
         if run_args:
             cmd.extend(run_args)
         # Add our docker volume mounts

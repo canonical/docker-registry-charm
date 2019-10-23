@@ -62,11 +62,17 @@ def config_changed():
     name = charm_config.get('registry-name')
 
     # If a provider gave us certs and http-host changed, make sure SANs are accurate
-    if is_flag_set('cert-provider.certs.available') and charm_config.changed('http-host'):
+    if (
+        is_flag_set('cert-provider.certs.available') and
+        charm_config.changed('http-host')
+    ):
         request_certificates()
 
     # If our name changed, make sure we stop the old one
-    if charm_config.changed('registry-name') and charm_config.previous('registry-name'):
+    if (
+        charm_config.changed('registry-name') and
+        charm_config.previous('registry-name')
+    ):
         name = charm_config.previous('registry-name')
 
     layer.docker_registry.stop_registry(name=name)
@@ -160,10 +166,12 @@ def request_certificates():
 
     # if our alt names have changed, request a new cert
     if data_changed('tls_sans', sans):
-        hookenv.log('Requesting new cert for CN: {} with SANs: {})'.format(cert_cn, sans))
+        hookenv.log(
+            'Requesting new cert for CN: {} with SANs: {})'.format(cert_cn, sans))
         cert_provider.request_server_cert(cert_cn, sans, cert_name)
     else:
-        hookenv.log('Not requesting new tls data; SANs did not change: {}'.format(sans))
+        hookenv.log(
+            'Not requesting new tls data; SANs did not change: {}'.format(sans))
 
 
 @when('charm.docker-registry.configured')
@@ -251,7 +259,9 @@ def update_reverseproxy_config():
         is_flag_set('config.set.tls-cert-blob') and
         is_flag_set('config.set.tls-key-blob')
     ):
-        tls_opts = "ssl check-ssl crt /var/lib/haproxy/default.pem ca-file %s verify required" % (hookenv.config().get('tls-ca-path'))
+        tls_ca_config = hookenv.config().get('tls-ca-path')
+        tls_opts = ("ssl check-ssl crt /var/lib/haproxy/default.pem "
+                    "ca-file %s verify required" % tls_ca_config)
     servers = []
     for unit in sorted(peers):
         if is_primary:
@@ -277,7 +287,7 @@ def update_reverseproxy_config():
   servers:
 %(servers)s
 """ % {
-        'mode': 'tcp' if tls_opts is not '' else 'http',
+        'mode': 'tcp' if tls_opts != '' else 'http',
         'app': hookenv.application_name(),
         'port': port,
         'servers': "\n".join(servers),
