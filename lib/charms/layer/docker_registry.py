@@ -8,7 +8,8 @@ from pathlib import Path
 from shutil import rmtree
 from urllib.parse import urlparse
 
-from charmhelpers.core import hookenv, host, templating, unitdata
+from charmhelpers.core import hookenv, host, unitdata
+from charms.layer import docker
 from charms.leadership import leader_get
 from charms.reactive import endpoint_from_flag, is_flag_set
 from charms.reactive.helpers import any_file_changed, data_changed
@@ -36,7 +37,8 @@ def configure_registry():
     auth_token = _get_auth_token()
     if auth_token:
         auth['token'] = auth_token
-        docker_volumes[auth_token['rootcertbundle']] = '/etc/docker/registry/auth_token.pem'
+        docker_volumes[auth_token['rootcertbundle']] = \
+            '/etc/docker/registry/auth_token.pem'
     registry_config['auth'] = auth
 
     # http (https://docs.docker.com/registry/configuration/#http)
@@ -100,9 +102,10 @@ def configure_registry():
             'tenant': charm_config.get('storage-swift-tenant', ''),
         }
 
-        # Openstack Domain settings (https://github.com/docker/docker.github.io/blob/master/registry/storage-drivers/swift.md)
+        # Openstack Domain settings
+        # (https://docs.docker.com/registry/storage-drivers/swift/)
         val = charm_config.get('storage-swift-domain', '')
-        if val is not '':
+        if val != '':
             storage['swift'].update({'domain': val})
 
         storage['redirect'] = {'disable': True}
@@ -147,8 +150,6 @@ def _configure_local_client():
     # client config depends on whether the registry is secure or insecure
     netloc = get_netloc()
     if is_flag_set('charm.docker-registry.tls-enabled'):
-        insecure_registry = ''
-
         # if our ca changed, install it into the default sys location
         # (docker client > 1.13 will use this)
         tls_ca = charm_config.get('tls-ca-path', '')
@@ -174,11 +175,11 @@ def _configure_local_client():
             tls_key_link = '{}/client.key'.format(client_tls_dst)
             _remove_if_exists(tls_key_link)
             os.symlink(tls_key, tls_key_link)
-    else:
-        insecure_registry = '"{}"'.format(netloc)
 
-    templating.render('daemon.json', '/etc/docker/daemon.json',
-                      {'registries': insecure_registry})
+        docker.delete_daemon_json('insecure-registries')
+    else:
+        docker.set_daemon_json('insecure-registries', [netloc])
+
     host.service_restart('docker')
 
 
@@ -420,9 +421,10 @@ def start_registry(name=None, run_args=None):
                         level=hookenv.ERROR)
             raise
     else:
-        # NB: config determines the port, but the container always listens to 5000 internally
+        # NB: config determines the port, but the container always listens to 5000
         # https://docs.docker.com/registry/deploying/#customize-the-published-port
-        cmd = ['docker', 'run', '-d', '-p', '{}:5000'.format(port), '--restart', 'unless-stopped']
+        cmd = ['docker', 'run', '-d', '-p', '{}:5000'.format(port),
+               '--restart', 'unless-stopped']
         if run_args:
             cmd.extend(run_args)
         # Add our docker volume mounts

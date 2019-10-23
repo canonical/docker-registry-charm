@@ -15,3 +15,6 @@ options:
     packages:
       - apache2-utils
       - python3-yaml
+exclude:
+  - .tox
+  - __pycache__
