@@ -25,6 +25,21 @@ options:
     type: string
     default: ""
     description: The name of the server which authentication tokens will be addressed to.
+  cache-password:
+    type: string
+    default: ""
+    description: Password for the remote registry when configured as a pull-through cache.
+  cache-remoteurl:
+    type: string
+    default: ""
+    description: |
+      Configures the registry as a pull through cache of the registry at the
+      given url. See https://docs.docker.com/registry/recipes/mirror/ for more
+      information the limitations of this mode.
+  cache-username:
+    type: string
+    default: ""
+    description: Username for the remote registry when configured as a pull-through cache.
   http-host:
     type: string
     default: ""
