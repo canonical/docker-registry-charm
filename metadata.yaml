@@ -5,6 +5,7 @@ description: Service for hosting docker images
 series:
  - bionic
  - xenial
+ - focal
 tags:
  - storage
 provides:
