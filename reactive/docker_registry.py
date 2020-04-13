@@ -1,7 +1,7 @@
 import base64
 import os
 
-from charmhelpers.core import hookenv
+from charmhelpers.core import hookenv, host
 from charmhelpers.contrib.hahelpers.cluster import peer_ips
 from charms.reactive import (
     endpoint_from_flag,
@@ -11,6 +11,7 @@ from charms.reactive import (
     when,
     when_any,
     when_not,
+    hook,
 )
 from charms import layer
 from charms.leadership import leader_set
@@ -20,6 +21,7 @@ from charms.reactive.helpers import data_changed
 @when('docker.ready',
       'apt.installed.apache2-utils')
 @when_not('charm.docker-registry.configured')
+@when_not('upgrade.series.in-progress')
 def start():
     layer.status.maint('Configuring the registry.')
 
@@ -31,6 +33,7 @@ def start():
 
 
 @when('charm.docker-registry.configured')
+@when_not('upgrade.series.in-progress')
 def report_status():
     '''Update status based on related charms/config.'''
     app_suffix = []
@@ -382,3 +385,16 @@ def remove_nrpe_external():
 @when_not('leadership.set.http-secret')
 def generate_http_secret():
     leader_set({'http-secret': base64.b64encode(os.urandom(32)).decode('utf-8')})
+
+
+@hook('pre-series-upgrade')
+def pre_series_upgrade():
+    layer.docker_registry.stop_registry(remove=False)
+    host.service_pause('docker')
+    layer.status.blocked('Series upgrade in progress')
+
+
+@hook('post-series-upgrade')
+def post_series_upgrade():
+    host.service_resume('docker')
+    layer.docker_registry.start_registry()
