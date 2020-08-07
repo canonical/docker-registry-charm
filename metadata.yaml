@@ -3,9 +3,9 @@ summary: Registry for docker images
 maintainer: Kevin Monroe <kevin.monroe@canonical.com>
 description: Service for hosting docker images
 series:
+ - focal
  - bionic
  - xenial
- - focal
 tags:
  - storage
 provides:
