@@ -114,4 +114,4 @@ options:
   tls-key-path:
     type: string
     default: "/etc/docker/registry/registry.key"
-    description: Path the the TLS certificate private key.
+    description: Path to the TLS certificate private key.
