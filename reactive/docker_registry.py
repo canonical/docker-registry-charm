@@ -134,8 +134,11 @@ def configure_client():
         data['registry_url'] = '{}://{}'.format(url_prefix, netloc)
 
     # send config
-    hookenv.log('Sending {} config to client: {}.'.format(netloc, data))
-    registry.set_registry_config(netloc, **data)
+    if registry:
+        hookenv.log('Sending {} config to client: {}.'.format(netloc, data))
+        registry.set_registry_config(netloc, **data)
+    else:
+        hookenv.log('docker-registry is unavailable.')
     set_flag('charm.docker-registry.client-configured')
 
 
