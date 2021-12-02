@@ -8,6 +8,7 @@ from charms.reactive import (
     set_flag,
     clear_flag,
     is_flag_set,
+    all_flags_set,
     when,
     when_any,
     when_not,
@@ -228,7 +229,8 @@ def remove_certs():
     layer.docker_registry.start_registry()
 
     # If we have clients, let them know our tls data has changed
-    if (is_flag_set('charm.docker-registry.client-configured')):
+    if all_flags_set('charm.docker-registry.client-configured',
+                     'endpoint.docker-registry.joined'):
         configure_client()
     report_status()
 
