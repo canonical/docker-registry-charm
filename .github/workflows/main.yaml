@@ -1,0 +1,38 @@
+name: Run tests with Tox
+
+on: [push]
+
+jobs:
+  unit-tests:
+    name: Lint, Unit Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: [3.5, 3.6, 3.7, 3.8, 3.9]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install Tox
+        run: pip install tox
+      - name: Run Tox
+        run: tox # Run tox using the version of Python in `PATH`
+
+  integration-tests:
+    name: Integration test with LXD
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+      - name: Setup operator environment
+        uses: charmed-kubernetes/actions-operator@main
+        with:
+          provider: lxd
+      - name: Run integration test
+        run: tox -e integration

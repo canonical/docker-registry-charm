@@ -1,0 +1,11 @@
+series: {{ series }}
+applications:
+  docker-registry:
+    charm: {{ main_charm }}
+    num_units: 1
+    to:
+    - "0"
+    constraints: arch=amd64
+machines:
+  "0":
+    constraints: arch=amd64
