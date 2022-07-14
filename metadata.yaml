@@ -5,6 +5,7 @@ description: Service for hosting docker images
 docs: https://discourse.charmhub.io/t/docker-registry-docs-index/6180
 series:
  - focal
+ - jammy
  - bionic
  - xenial
 tags:
