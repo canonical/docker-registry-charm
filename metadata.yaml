@@ -7,7 +7,6 @@ series:
  - focal
  - jammy
  - bionic
- - xenial
 tags:
  - storage
 provides:
