@@ -94,6 +94,11 @@ def config_changed():
     report_status()
 
 
+@when_not("endpoint.docker-registry.joined")
+def remove_client():
+    clear_flag('charm.docker-registry.client-configured')
+
+
 @when('charm.docker-registry.configured',
       'endpoint.docker-registry.joined')
 @when_not('charm.docker-registry.client-configured')
