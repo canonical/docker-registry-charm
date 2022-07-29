@@ -93,9 +93,9 @@ def configure_registry():
     # Sets up registry as a pull-throuch cache
     if charm_config.get('cache-remoteurl'):
         registry_config['proxy'] = {
-            'remoteurl' : charm_config.get('cache-remoteurl', ''),
-            'username' : charm_config.get('cache-username', ''),
-            'password' : charm_config.get('cache-password', ''),
+            'remoteurl': charm_config.get('cache-remoteurl', ''),
+            'username': charm_config.get('cache-username', ''),
+            'password': charm_config.get('cache-password', ''),
         }
 
     # storage (https://docs.docker.com/registry/configuration/#storage)
