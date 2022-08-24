@@ -66,6 +66,16 @@ options:
     type: int
     default: 5000
     description: The external port on which the docker registry listens.
+  registry-http-proxy:
+    type: string
+    default:
+    description: |
+      The HTTP proxy the registry server should use to access the upstream registry.
+  registry-https-proxy:
+    type: string
+    default:
+    description: |
+      The HTTPS proxy the registry server should use to access the upstream registry.
   storage-delete:
     type: boolean
     default: false
