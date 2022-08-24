@@ -42,8 +42,9 @@ def configure_registry():
     registry_config['auth'] = auth
 
     # http (https://docs.docker.com/registry/configuration/#http)
-    port = charm_config.get('registry-port')
-    http = {'addr': '0.0.0.0:{}'.format(port),
+    # Registry can always listen on port 5000, with registry-port used
+    # for mapping from the host networking only.
+    http = {'addr': '0.0.0.0:5000',
             'headers': {'X-Content-Type-Options': ['nosniff']},
             'relativeurls': True}
     if charm_config.get('http-host'):
