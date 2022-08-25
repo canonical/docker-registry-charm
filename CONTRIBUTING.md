@@ -34,4 +34,4 @@ To contribute code to this project, pleas euse the following workflow:
 ## Documentation
 
 Documentation for this charm is currently maintained as part of the Charmed Kubernetes docs.
-See [this page](https://github.com/charmed-kubernetes/kubernetes-docs/blob/master/pages/k8s/charm-docker-registry.md)
+See [this page](https://discourse.charmhub.io/t/docker-registry-docs-index/6180)
