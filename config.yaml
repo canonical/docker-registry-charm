@@ -105,7 +105,7 @@ options:
   storage-swift-domain:
     type: string
     default: ""
-    description: Openstack Identity v3 API domain.
+    description: OpenStack Identity v3 API domain.
   tls-ca-blob:
     type: string
     default: ""
