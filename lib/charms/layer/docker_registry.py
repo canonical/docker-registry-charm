@@ -435,6 +435,13 @@ def start_registry(name=None, run_args=None):
         # https://docs.docker.com/registry/deploying/#customize-the-published-port
         cmd = ['docker', 'run', '-d', '-p', '{}:5000'.format(port),
                '--restart', 'unless-stopped']
+        # HTTP/HTTPS proxy configuration
+        http_proxy = charm_config.get('registry-http-proxy')
+        if http_proxy:
+            cmd.extend(['-e', "HTTP_PROXY={}".format(http_proxy)])
+        https_proxy = charm_config.get('registry-https-proxy')
+        if https_proxy:
+            cmd.extend(['-e', "HTTPS_PROXY={}".format(https_proxy)])
         if run_args:
             cmd.extend(run_args)
         # Add our docker volume mounts
