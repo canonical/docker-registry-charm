@@ -4,9 +4,8 @@ maintainer: Kevin Monroe <kevin.monroe@canonical.com>
 description: Service for hosting docker images
 docs: https://discourse.charmhub.io/t/docker-registry-docs-index/6180
 series:
- - focal
  - jammy
- - bionic
+ - focal
 tags:
  - storage
 provides:
