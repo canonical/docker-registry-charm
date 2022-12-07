@@ -1,11 +1,8 @@
-series: {{ series }}
 applications:
-  docker-registry:
+  {% for s in series -%}
+  docker-registry-{{ s }}:
     charm: {{ main_charm }}
     num_units: 1
-    to:
-    - "0"
+    series: {{ s }}
     constraints: arch=amd64
-machines:
-  "0":
-    constraints: arch=amd64
+  {% endfor %}

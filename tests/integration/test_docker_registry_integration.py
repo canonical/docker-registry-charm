@@ -1,5 +1,5 @@
 import logging
-
+from pathlib import Path
 import pytest
 
 
@@ -9,9 +9,13 @@ log = logging.getLogger(__name__)
 @pytest.mark.abort_on_fail
 async def test_build_and_deploy(ops_test, series):
     """Build and deploy docker-registry in bundle"""
-    charm = await ops_test.build_charm(".")
+    charm = next(Path.cwd().glob("docker-registry*.charm"), None)
+    if not charm:
+        log.info("Build Charm...")
+        charm = await ops_test.build_charm(".")
+
     bundle = ops_test.render_bundle(
-        "tests/data/bundle.yaml", main_charm=charm, series=series
+        "tests/data/bundle.yaml", main_charm=charm.resolve(), series=series
     )
     await ops_test.model.deploy(bundle)
     await ops_test.model.wait_for_idle(wait_for_active=True, timeout=60 * 60)
@@ -19,29 +23,46 @@ async def test_build_and_deploy(ops_test, series):
 
 async def test_status_messages(ops_test):
     """Validate that the status messages are correct."""
-    unit = ops_test.model.applications["docker-registry"].units[0]
-    assert unit.workload_status == "active"
-    # note (rgildein): ignoring E999 due to flake8 failure on py35
-    assert unit.workload_status_message == \
-           f"Ready at {unit.public_address}:5000 (http)."  # noqa: E999
+    registry_units = [
+        app.units[0]
+        for name, app in ops_test.model.applications.items()
+        if "docker-registry" in name
+    ]
+
+    for unit in registry_units:
+        assert unit.workload_status == "active"
+        msg = f"Ready at {unit.public_address}:5000 (http)."
+        assert unit.workload_status_message == msg
 
 
 async def test_push_image(ops_test):
     """Test the push image into the registry."""
-    unit = ops_test.model.applications["docker-registry"].units[0]
-    action = await unit.run_action("push", image="python:3.9-slim", pull=True)
-    output = await action.wait()  # wait for result
-    assert output.data.get("status") == "completed"
-    assert output.data.get("results", {}).get("outcome") == "success"
-    assert output.data.get("results", {}).get("raw") == \
-           f"pushed {unit.public_address}:5000/python:3.9-slim"
+    registry_units = [
+        app.units[0]
+        for name, app in ops_test.model.applications.items()
+        if "docker-registry" in name
+    ]
+
+    for unit in registry_units:
+        action = await unit.run_action("push", image="python:3.9-slim", pull=True)
+        output = await action.wait()  # wait for result
+        assert output.data.get("status") == "completed"
+        assert output.data.get("results", {}).get("outcome") == "success"
+        assert output.data.get("results", {}).get("raw") == \
+            f"pushed {unit.public_address}:5000/python:3.9-slim"
 
 
 async def test_image_list(ops_test):
     """Try getting a list of images into the registry."""
-    unit = ops_test.model.applications["docker-registry"].units[0]
-    action = await unit.run_action("images", repository="python:3.9-slim")
-    output = await action.wait()  # wait for result
-    assert output.data.get("status") == "completed"
-    assert "python" in output.data.get("results", {}).get("output")
-    assert "3.9-slim" in output.data.get("results", {}).get("output")
+    registry_units = [
+        app.units[0]
+        for name, app in ops_test.model.applications.items()
+        if "docker-registry" in name
+    ]
+
+    for unit in registry_units:
+        action = await unit.run_action("images", repository="python:3.9-slim")
+        output = await action.wait()  # wait for result
+        assert output.data.get("status") == "completed"
+        assert "python" in output.data.get("results", {}).get("output")
+        assert "3.9-slim" in output.data.get("results", {}).get("output")

@@ -1,15 +1,10 @@
 import pytest
-
-
-def pytest_addoption(parser):
-    parser.addoption(
-        "--series",
-        type=str,
-        default="focal",
-        help="Set series for the machine units",
-    )
+from pathlib import Path
+import yaml
 
 
 @pytest.fixture()
 def series(request):
-    return request.config.getoption("--series")
+    metadata_file = Path(__file__).parent / ".." / ".." / "metadata.yaml"
+    metadata = yaml.safe_load(metadata_file.read_text())
+    return metadata["series"]
