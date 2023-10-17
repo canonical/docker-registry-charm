@@ -70,6 +70,15 @@ def configure_registry():
         if os.path.isfile(tls_ca):
             http['tls']['clientcas'] = [tls_ca]
             docker_volumes[tls_ca] = '/etc/docker/registry/ca.crt'
+
+    # debug https://docs.docker.com/registry/configuration/#debug
+    # The debug server always listens on port 5001, with debug-port used
+    # for mapping from the host network only.
+    if charm_config.get('prometheus-metrics'):
+        http['debug'] = {
+            'addr': '0.0.0.0:5001',
+            'prometheus': {'enabled': charm_config['prometheus-metrics']},
+        }
     registry_config['http'] = http
 
     # log (https://docs.docker.com/registry/configuration/#log)
@@ -418,6 +427,7 @@ def start_registry(name=None, run_args=None):
     charm_config = hookenv.config()
     image = charm_config.get('registry-image')
     port = charm_config.get('registry-port')
+    debug_port = charm_config.get('debug-port')
     if not name:
         name = charm_config.get('registry-name')
 
@@ -431,10 +441,11 @@ def start_registry(name=None, run_args=None):
                         level=hookenv.ERROR)
             raise
     else:
-        # NB: config determines the port, but the container always listens to 5000
+        # NB: config determines the port, but the container always listens to 5000 and
+        # 5001
         # https://docs.docker.com/registry/deploying/#customize-the-published-port
         cmd = ['docker', 'run', '-d', '-p', '{}:5000'.format(port),
-               '--restart', 'unless-stopped']
+               '-p', '{}:5001'.format(debug_port), '--restart', 'unless-stopped']
         # HTTP/HTTPS proxy configuration
         http_proxy = charm_config.get('registry-http-proxy')
         if http_proxy:
@@ -456,7 +467,17 @@ def start_registry(name=None, run_args=None):
                         level=hookenv.ERROR)
             raise
 
+    previous_registry_port = charm_config.previous('registry-port')
+    previous_debug_port = charm_config.previous('debug-port')
+
+    if previous_registry_port:
+        hookenv.close_port(previous_registry_port)
     hookenv.open_port(port)
+
+    if previous_debug_port:
+        hookenv.close_port(previous_debug_port)
+    if charm_config.get('prometheus-metrics'):
+        hookenv.open_port(debug_port)
 
 
 def stop_registry(name=None, remove=True):
@@ -470,6 +491,7 @@ def stop_registry(name=None, remove=True):
     '''
     charm_config = hookenv.config()
     port = charm_config.get('registry-port')
+    debug_port = charm_config.get('debug-port')
     if not name:
         name = charm_config.get('registry-name')
 
@@ -494,6 +516,7 @@ def stop_registry(name=None, remove=True):
             raise
 
     hookenv.close_port(port)
+    hookenv.close_port(debug_port)
 
 
 def write_tls(ca, cert, key):
