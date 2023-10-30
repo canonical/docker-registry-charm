@@ -71,7 +71,7 @@ def configure_registry():
             http['tls']['clientcas'] = [tls_ca]
             docker_volumes[tls_ca] = '/etc/docker/registry/ca.crt'
 
-    # debug https://docs.docker.com/registry/configuration/#debug
+    # debug (https://distribution.github.io/distribution/about/configuration/#debug)
     # The debug server always listens on port 5001, with debug-port used
     # for mapping from the host network only.
     if charm_config.get('prometheus-metrics'):
