@@ -40,6 +40,10 @@ options:
     type: string
     default: ""
     description: Username for the remote registry when configured as a pull-through cache.
+  debug-port:
+    type: int
+    default: 5001
+    description: The external port on which the docker registry debug server listens.
   http-host:
     type: string
     default: ""
@@ -54,6 +58,10 @@ options:
     type: string
     default: "info"
     description: Logging output level ('error', 'warn', 'info', or 'debug').
+  prometheus-metrics:
+    type: boolean
+    default: false
+    description: Enable/disable prometheus metrics.
   registry-image:
     type: string
     default: "registry:2"
