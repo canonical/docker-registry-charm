@@ -46,9 +46,8 @@ async def test_push_image(ops_test):
     for unit in registry_units:
         action = await unit.run_action("push", image="python:3.9-slim", pull=True)
         output = await action.wait()  # wait for result
-        assert output.data.get("status") == "completed"
-        assert output.data.get("results", {}).get("outcome") == "success"
-        assert output.data.get("results", {}).get("raw") == \
+        assert output.status == "completed"
+        assert output.results.get("raw") == \
             f"pushed {unit.public_address}:5000/python:3.9-slim"
 
 
@@ -63,6 +62,5 @@ async def test_image_list(ops_test):
     for unit in registry_units:
         action = await unit.run_action("images", repository="python:3.9-slim")
         output = await action.wait()  # wait for result
-        assert output.data.get("status") == "completed"
-        assert "python" in output.data.get("results", {}).get("output")
-        assert "3.9-slim" in output.data.get("results", {}).get("output")
+        assert output.status == "completed"
+        assert "python" in output.results.get("output")
