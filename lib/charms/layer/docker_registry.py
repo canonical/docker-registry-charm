@@ -108,7 +108,7 @@ def configure_registry():
             'password': charm_config.get('cache-password', ''),
         }
 
-    # storage (https://docs.docker.com/registry/configuration/#storage)
+    # storage (https://distribution.github.io/distribution/about/configuration/#storage)
     # we must have 1 (and only 1) storage driver
     storage = {}
     if charm_config.get('storage-swift-authurl'):
@@ -132,7 +132,6 @@ def configure_registry():
         # If we're not swift, we're local.
         container_registry_path = '/var/lib/registry'
         storage['filesystem'] = {'rootdirectory': container_registry_path}
-        storage['cache'] = {'blobdescriptor': 'inmemory'}
 
         # Local storage is mounted from the host so images persist across
         # registry container restarts.
@@ -143,6 +142,8 @@ def configure_registry():
         storage['delete'] = {'enabled': True}
     if charm_config.get('storage-read-only'):
         storage['maintenance'] = {'readonly': {'enabled': True}}
+    storage_cache = charm_config.get('storage-cache', 'inmemory')
+    storage['cache'] = {'blobdescriptor': storage_cache}
     registry_config['storage'] = storage
 
     os.makedirs(os.path.dirname(registry_config_file), exist_ok=True)
