@@ -26,11 +26,17 @@ from charms.reactive.helpers import data_changed
 def start():
     layer.status.maint('Configuring the registry.')
 
-    layer.docker_registry.configure_registry()
-    layer.docker_registry.start_registry()
+    bad_config = layer.docker_registry.has_invalid_config()
+    if bad_config:
+        layer.status.blocked(f"Invalid charm config: {', '.join(bad_config)}")
+        # NB: clear_flag just in case we were called from a handler where it is set.
+        clear_flag('charm.docker-registry.configured')
+    else:
+        layer.docker_registry.configure_registry()
+        layer.docker_registry.start_registry()
 
-    set_flag('charm.docker-registry.configured')
-    report_status()
+        set_flag('charm.docker-registry.configured')
+        report_status()
 
 
 @when('charm.docker-registry.configured')
@@ -65,12 +71,21 @@ def config_changed():
     charm_config = hookenv.config()
     name = charm_config.get('registry-name')
 
-    # If a provider gave us certs and http-host changed, make sure SANs are accurate
+    # If we have certs and http-host changed, ensure we'll refire the
+    # request_certificates handler.
     if (
         is_flag_set('cert-provider.certs.available') and
         charm_config.changed('http-host')
     ):
-        request_certificates()
+        clear_flag('cert-provider.certs.available')
+
+    # If we have connected clients and relevant config has changed, ensure we'll
+    # refire the configure_client handler.
+    if (is_flag_set('charm.docker-registry.client-configured') and
+            any((charm_config.changed('auth-basic-password'),
+                 charm_config.changed('auth-basic-user'),
+                 charm_config.changed('http-host')))):
+        clear_flag('charm.docker-registry.client-configured')
 
     # If our name changed, make sure we stop the old one
     if (
@@ -80,18 +95,7 @@ def config_changed():
         name = charm_config.previous('registry-name')
 
     layer.docker_registry.stop_registry(name=name)
-    layer.docker_registry.configure_registry()
-    layer.docker_registry.start_registry()
-
-    # Now that we reconfigured the registry, inform connected clients if
-    # anything changed that they should know about.
-    if (is_flag_set('charm.docker-registry.client-configured') and
-            any((charm_config.changed('auth-basic-password'),
-                 charm_config.changed('auth-basic-user'),
-                 charm_config.changed('http-host')))):
-        configure_client()
-
-    report_status()
+    start()
 
 
 @when_not("endpoint.docker-registry.joined")

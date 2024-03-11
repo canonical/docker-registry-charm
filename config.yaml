@@ -84,6 +84,12 @@ options:
     default:
     description: |
       The HTTPS proxy the registry server should use to access the upstream registry.
+  storage-cache:
+    type: string
+    default: "inmemory"
+    description: |
+      Cache provider for image layer metadata. Valid options are "inmemory" or
+      "disabled".
   storage-delete:
     type: boolean
     default: false

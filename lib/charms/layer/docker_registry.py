@@ -15,6 +15,22 @@ from charms.reactive import endpoint_from_flag, is_flag_set
 from charms.reactive.helpers import any_file_changed, data_changed
 
 
+def has_invalid_config():
+    """Checks charm config for invalid values.
+
+    If invalid values are found, return a list of the offending key(s). Otherwise,
+    return an empty list.
+    """
+    charm_config = hookenv.config()
+    bad_config = []
+
+    storage_cache = charm_config.get("storage-cache", "")
+    if storage_cache not in ["inmemory", "disabled"]:
+        bad_config.append("storage-cache")
+
+    return bad_config
+
+
 def configure_registry():
     '''Recreate the docker registry config.yml.'''
     charm_config = hookenv.config()
@@ -108,7 +124,7 @@ def configure_registry():
             'password': charm_config.get('cache-password', ''),
         }
 
-    # storage (https://docs.docker.com/registry/configuration/#storage)
+    # storage (https://distribution.github.io/distribution/about/configuration/#storage)
     # we must have 1 (and only 1) storage driver
     storage = {}
     if charm_config.get('storage-swift-authurl'):
@@ -132,7 +148,6 @@ def configure_registry():
         # If we're not swift, we're local.
         container_registry_path = '/var/lib/registry'
         storage['filesystem'] = {'rootdirectory': container_registry_path}
-        storage['cache'] = {'blobdescriptor': 'inmemory'}
 
         # Local storage is mounted from the host so images persist across
         # registry container restarts.
@@ -143,6 +158,8 @@ def configure_registry():
         storage['delete'] = {'enabled': True}
     if charm_config.get('storage-read-only'):
         storage['maintenance'] = {'readonly': {'enabled': True}}
+    if charm_config.get('storage-cache', 'inmemory') == 'inmemory':
+        storage['cache'] = {'blobdescriptor': 'inmemory'}
     registry_config['storage'] = storage
 
     os.makedirs(os.path.dirname(registry_config_file), exist_ok=True)
