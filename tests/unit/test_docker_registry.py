@@ -51,3 +51,18 @@ def test_configure_registry(config, mock_kv, mock_write, mock_host, mock_lc):
         layer.docker_registry.configure_registry()
         args, _ = mock_yaml.safe_dump.call_args_list[0]
         assert expected["storage"].items() <= args[0]["storage"].items()
+
+
+@mock.patch("charmhelpers.core.hookenv.config")
+def test_has_invalid_config(config):
+    # check valid config is valid
+    config.return_value = {
+        "storage-cache": "disabled",
+    }
+    assert not layer.docker_registry.has_invalid_config()
+
+    # check for bad apples
+    config.return_value = {
+        "storage-cache": "bananas",
+    }
+    assert "storage-cache" in layer.docker_registry.has_invalid_config()
