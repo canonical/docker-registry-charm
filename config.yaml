@@ -88,8 +88,8 @@ options:
     type: string
     default: "inmemory"
     description: |
-      Cache provider for image layer metadata. Valid options are "inmemory" or "redis".
-      Any other value disables the cache.
+      Cache provider for image layer metadata. Valid options are "inmemory" or
+      "disabled".
   storage-delete:
     type: boolean
     default: false

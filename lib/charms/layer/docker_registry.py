@@ -15,6 +15,22 @@ from charms.reactive import endpoint_from_flag, is_flag_set
 from charms.reactive.helpers import any_file_changed, data_changed
 
 
+def has_invalid_config():
+    """Checks charm config for invalid values.
+
+    If invalid values are found, return a list of the offending key(s). Otherwise,
+    return an empty list.
+    """
+    charm_config = hookenv.config()
+    bad_config = []
+
+    storage_cache = charm_config.get("storage-cache", "")
+    if storage_cache not in ["inmemory", "disabled"]:
+        bad_config.append("storage-cache")
+
+    return bad_config
+
+
 def configure_registry():
     '''Recreate the docker registry config.yml.'''
     charm_config = hookenv.config()
