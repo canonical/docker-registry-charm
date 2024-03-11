@@ -38,15 +38,25 @@ def test_series_upgrade(start_registry, stop_registry):
 @mock.patch("charmhelpers.core.hookenv.config")
 @mock.patch("os.makedirs", mock.Mock(return_value=0))
 def test_configure_registry(config, mock_kv, mock_write, mock_host, mock_lc):
+    # storage-cache: invalid value should not result in any cache structure
     config.return_value = {
         "log-level": "bananas",
         "storage-cache": "bananas",
     }
+    with mock.patch("charms.layer.docker_registry.yaml") as mock_yaml:
+        layer.docker_registry.configure_registry()
+        args, _ = mock_yaml.safe_dump.call_args_list[0]
+        assert "cache" not in args[0]["storage"]
+
+    # storage-cache: valid value should result in a populated cache structure
+    config.return_value = {
+        "log-level": "bananas",
+        "storage-cache": "inmemory",
+    }
     expected = {
         "log": {"level": "bananas"},
-        "storage": {"cache": {"blobdescriptor": "bananas"}},
+        "storage": {"cache": {"blobdescriptor": "inmemory"}},
     }
-
     with mock.patch("charms.layer.docker_registry.yaml") as mock_yaml:
         layer.docker_registry.configure_registry()
         args, _ = mock_yaml.safe_dump.call_args_list[0]

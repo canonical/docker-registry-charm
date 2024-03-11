@@ -158,8 +158,8 @@ def configure_registry():
         storage['delete'] = {'enabled': True}
     if charm_config.get('storage-read-only'):
         storage['maintenance'] = {'readonly': {'enabled': True}}
-    storage_cache = charm_config.get('storage-cache', 'inmemory')
-    storage['cache'] = {'blobdescriptor': storage_cache}
+    if charm_config.get('storage-cache', 'inmemory') == 'inmemory':
+        storage['cache'] = {'blobdescriptor': 'inmemory'}
     registry_config['storage'] = storage
 
     os.makedirs(os.path.dirname(registry_config_file), exist_ok=True)
