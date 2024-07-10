@@ -154,3 +154,118 @@ options:
     type: string
     default: "/etc/docker/registry/registry.key"
     description: Path to the TLS certificate private key.
+  storage-s3-accesskey:
+    type: string
+    default:
+    description: |
+      S3 storage access key. More info about S3 storage configuration could be found here:
+      https://distribution.github.io/distribution/storage-drivers/s3/ .
+  storage-s3-secretkey:
+    type: string
+    default:
+    description: S3 storage secret key.
+  storage-s3-region:
+    type: string
+    default:
+    description: The region containing the S3 service.
+  storage-s3-regionendpoint:
+    type: string
+    default:
+    description: Endpoint for S3 compatible storage services (Minio, etc).
+  storage-s3-forcepathstyle:
+    type: boolean
+    default: false
+    description: To enable path-style addressing when the value is set to "true".
+  storage-s3-bucket:
+    type: string
+    default:
+    description: The bucket name in which you want to store the registry’s data.
+  storage-s3-encrypt:
+    type: boolean
+    default: false
+    description: Specifies whether the registry stores the image in encrypted format or not.
+  storage-s3-keyid:
+    type: string
+    default:
+    description: |
+      Optional KMS key ID to use for encryption
+      (encrypt must be true, or this parameter is ignored).
+  storage-s3-secure:
+    type: boolean
+    default: true
+    description: Indicates whether to use HTTPS instead of HTTP.
+  storage-s3-skip-verify:
+    type: boolean
+    default: false
+    description: Skips TLS verification when the value is set to "true".
+  storage-s3-skip-v4-auth:
+    type: boolean
+    default: true
+    description: Indicates whether the registry uses Version 4 of AWS’s authentication.
+  storage-s3-chunksize:
+    type: int
+    default: 10485760
+    description: |
+      The S3 API requires multipart upload chunks to be at least 5MB.
+      This value should be a number that is larger than 5 * 1024 * 1024.
+  storage-s3-multipartcopychunksize:
+    type: int
+    default: 33554432
+    description: |
+      The default chunk size for all but the last Upload Part in the S3 Multipart Upload
+      operation when copying stored objects.
+  storage-s3-multipartcopymaxconcurrency:
+    type: int
+    default: 100
+    description: |
+      The default maximum number of concurrent Upload Part operations in the
+      S3 Multipart Upload when copying stored objects.
+  storage-s3-multipartcopythresholdsize:
+    type: int
+    default: 33554432
+    description: |
+      The default S3 object size above which multipart copy will be used when copying the
+      object. Otherwise the object is copied with a single S3 API operation.
+  storage-s3-rootdirectory:
+    type: string
+    default:
+    description: The root directory tree in which all registry files are stored.
+  storage-s3-storageclass:
+    type: string
+    default: "STANDARD"
+    description: |
+      The storage class applied to each registry file.
+      Valid options are STANDARD and REDUCED_REDUNDANCY.
+  storage-s3-useragent:
+    type: string
+    default:
+    description:  The User-Agent header value for S3 API operations.
+  storage-s3-usedualstack:
+    type: boolean
+    default: false
+    description: |
+      Use AWS dual-stack API endpoints which support requests to
+      S3 buckets over IPv6 and IPv4.
+  storage-s3-accelerate:
+    type: boolean
+    default: false
+    description: |
+      Enable S3 transfer acceleration for faster transfers of files over
+      long distances.
+  storage-s3-objectacl:
+    type: string
+    default: "private"
+    description: |
+      The canned object ACL to be applied to each registry object.
+      If you are using a bucket owned by another AWS account, it is recommended that you set this
+      to "bucket-owner-full-control" so that the bucket owner can access your objects.
+      Other valid options are available in the AWS S3 documentation:
+      https://docs.aws.amazon.com/AmazonS3/latest/dev/acl-overview.html#canned-acl
+  storage-s3-loglevel:
+    type: string
+    default: "off"
+    description: |
+      Valid values are: off (default), debug, debugwithsigning, debugwithhttpbody,
+      debugwithrequestretries, debugwithrequesterrors and debugwitheventstreambody.
+      See the AWS SDK for Go API reference for details:
+      https://docs.aws.amazon.com/sdk-for-go/api/aws/#LogLevelType
