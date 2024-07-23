@@ -144,6 +144,45 @@ def configure_registry():
             storage['swift'].update({'domain': val})
 
         storage['redirect'] = {'disable': True}
+    elif (
+            charm_config.get('storage-s3-region') and
+            charm_config.get('storage-s3-bucket')
+        ):
+        storage['s3'] = {
+            'region': charm_config.get('storage-s3-region'),
+            'bucket': charm_config.get('storage-s3-bucket'),
+            'forcepathstyle': charm_config.get('storage-s3-forcepathstyle', False),
+            'encrypt': charm_config.get('storage-s3-encrypt', False),
+            'secure': charm_config.get('storage-s3-secure', True),
+            'skipverify': charm_config.get('storage-s3-skipverify', False),
+            'v4auth': charm_config.get('storage-s3-v4auth', True),
+            'chunksize': charm_config.get('storage-s3-chunksize', 10 * 1024 * 1024),
+            'multipartcopychunksize': charm_config.get(
+                'storage-s3-multipartcopychunksize', 30 * 1024 * 1024
+            ),
+            'multipartcopymaxconcurrency': charm_config.get(
+                'storage-s3-multipartcopymaxconcurrency', 100
+            ),
+            'multipartcopythresholdsize': charm_config.get(
+                'storage-s3-multipartcopythresholdsize', 30 * 1024 * 1024
+            ),
+            'storageclass': charm_config.get('storage-s3-storageclass', 'STANDARD'),
+            'usedualstack': charm_config.get('storage-s3-usedualstack', False),
+            'accelerate': charm_config.get('storage-s3-accelerate', False),
+            'loglevel': charm_config.get('storage-s3-loglevel', 'off'),
+        }
+        optional_params = (
+            'accesskey',
+            'secretkey',
+            'regionendpoint',
+            'keyid',
+            'useragent',
+            'rootdirectory',
+        )
+        for short_name in optional_params:
+            full_name = f'storage-s3-{short_name}'
+            if charm_config.get(full_name):
+                storage['s3'][short_name] = charm_config.get(full_name)
     else:
         # If we're not swift, we're local.
         container_registry_path = '/var/lib/registry'
