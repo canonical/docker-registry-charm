@@ -24,7 +24,7 @@ We have adopted the Ubuntu code of Conduct. You can read this in full [here](htt
 
 To contribute code to this project, pleas euse the following workflow:
 
-1. [Submit a bug](https://bugs.launchpad.net/charm-docker-registry/+filebug) to explain the need for and track the change.
+1. [Submit a bug](https://bugs.launchpad.net/layer-docker-registry/+filebug) to explain the need for and track the change.
 2. Create a branch on your fork of the repo with your changes, including a unit test covering the new or modified code.
 3. Submit a PR. The PR description should include a link to the bug on Launchpad.
 4. Update the Launchpad bug to include a link to the PR and the `review-needed` tag.
