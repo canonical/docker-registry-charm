@@ -114,10 +114,12 @@ def test_configure_registry_s3_storage_smoke(config, *args):
         layer.docker_registry.configure_registry()
         args, _ = mock_yaml.safe_dump.call_args_list[0]
         assert 'storage' in args[0]
+        redirect_config = args[0]['storage'].get('redirect', None)
+        assert redirect_config['disable'] is True
+
         assert 's3' in args[0]['storage']
         actual_storage_config = args[0]['storage']['s3']
         assert expected_storage['s3'].items() == actual_storage_config.items()
-
 
 
 @mock.patch("os.makedirs", mock.Mock(return_value=0))
@@ -157,6 +159,9 @@ def test_configure_registry_s3_storage_region_endpoint(config, *args):
         layer.docker_registry.configure_registry()
         args, _ = mock_yaml.safe_dump.call_args_list[0]
         assert 'storage' in args[0]
+        redirect_config = args[0]['storage'].get('redirect', None)
+        assert redirect_config['disable'] is True
+
         assert 's3' in args[0]['storage']
         actual_storage_config = args[0]['storage']['s3']
         assert expected_storage['s3'].items() == actual_storage_config.items()
@@ -202,6 +207,63 @@ def test_configure_registry_s3_storage_override_default(config, *args):
         assert 's3' in args[0]['storage']
         actual_storage_config = args[0]['storage']['s3']
         assert expected_storage['s3'].items() == actual_storage_config.items()
+
+
+@mock.patch("os.makedirs", mock.Mock(return_value=0))
+@mock.patch("charms.layer.docker_registry._write_tls_blobs_to_files")
+@mock.patch("charms.layer.docker_registry._configure_local_client")
+@mock.patch("charms.layer.docker_registry._write_tls_blobs_to_files")
+@mock.patch("charms.layer.docker_registry.unitdata")
+@mock.patch("charmhelpers.core.hookenv.config")
+def test_configure_registry_s3_storage_enable_storage_redirect(config, *args):
+    config.return_value = {
+        "log-level": "info",
+        "storage-redirect-disable": False
+    }
+    with mock.patch("charms.layer.docker_registry.yaml") as mock_yaml:
+        layer.docker_registry.configure_registry()
+        args, _ = mock_yaml.safe_dump.call_args_list[0]
+        assert 'storage' in args[0]
+
+        redirect_config = args[0]['storage'].get('redirect', None)
+        assert redirect_config['disable'] is False
+
+
+@mock.patch("os.makedirs", mock.Mock(return_value=0))
+@mock.patch("charms.layer.docker_registry._write_tls_blobs_to_files")
+@mock.patch("charms.layer.docker_registry._configure_local_client")
+@mock.patch("charms.layer.docker_registry._write_tls_blobs_to_files")
+@mock.patch("charms.layer.docker_registry.unitdata")
+@mock.patch("charmhelpers.core.hookenv.config")
+def test_configure_registry_swift_storage_redirect_disabled(config, *args):
+    config.return_value = {
+        "log-level": "info",
+        "storage-swift-authurl": "https://ns1-region-swift.internal",
+        "storage-swift-username": "test_user",
+        "storage-swift-password": "secret",
+        "storage-swift-region": "test",
+    }
+    expected_storage = {
+        "swift": {
+            "authurl": "https://ns1-region-swift.internal",
+            "username": "test_user",
+            "password": "secret",
+            "region": "test",
+            "container": "",
+            "tenant": ""
+        },
+    }
+    with mock.patch("charms.layer.docker_registry.yaml") as mock_yaml:
+        layer.docker_registry.configure_registry()
+        args, _ = mock_yaml.safe_dump.call_args_list[0]
+        assert 'storage' in args[0]
+        redirect_config = args[0]['storage'].get('redirect', None)
+        # redirect has to be disabled by default for swift storage
+        assert redirect_config['disable'] is True
+
+        assert 'swift' in args[0]['storage']
+        actual_storage_config = args[0]['storage']['swift']
+        assert expected_storage['swift'].items() == actual_storage_config.items()
 
 
 @mock.patch("os.makedirs", mock.Mock(return_value=0))
