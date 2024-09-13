@@ -96,6 +96,14 @@ options:
     description: |
       Enable/disable the "delete" storage option. False, the default, disables
       this option in the registry config file.
+  storage-redirect-disable:
+    type: boolean
+    default: true
+    description: |
+      For backends that support it(swift, s3), redirecting is disabled by default.
+      All data routed through the Registry, rather than redirecting to the backend.
+      If you want to redirect client requests directly to content storage,
+      set this option to false.
   storage-read-only:
     type: boolean
     default: false

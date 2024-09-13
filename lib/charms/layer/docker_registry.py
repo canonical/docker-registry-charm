@@ -142,12 +142,10 @@ def configure_registry():
         val = charm_config.get('storage-swift-domain', '')
         if val != '':
             storage['swift'].update({'domain': val})
-
-        storage['redirect'] = {'disable': True}
     elif (
-            charm_config.get('storage-s3-region') and
-            charm_config.get('storage-s3-bucket')
-        ):
+        charm_config.get('storage-s3-region') and
+        charm_config.get('storage-s3-bucket')
+    ):
         storage['s3'] = {
             'region': charm_config.get('storage-s3-region'),
             'bucket': charm_config.get('storage-s3-bucket'),
@@ -199,6 +197,13 @@ def configure_registry():
         storage['maintenance'] = {'readonly': {'enabled': True}}
     if charm_config.get('storage-cache', 'inmemory') == 'inmemory':
         storage['cache'] = {'blobdescriptor': 'inmemory'}
+
+    storage_redirect_disable = charm_config.get('storage-redirect-disable', True)
+
+    # by default redirect is disabled for S3 and Swift backends mostly because this
+    # charm is used in private clouds with private object storage
+    storage['redirect'] = {'disable': storage_redirect_disable}
+
     registry_config['storage'] = storage
 
     os.makedirs(os.path.dirname(registry_config_file), exist_ok=True)
