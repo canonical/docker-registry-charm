@@ -21,6 +21,8 @@ parts:
     - https://raw.githubusercontent.com/charmed-kubernetes/layer-index/main/
     - --debug
     - --force
+    build-packages:
+    - python3-dev
     build-snaps:
     - charm/3.x/stable
     build-environment:
