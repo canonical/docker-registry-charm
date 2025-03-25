@@ -4,5 +4,5 @@ applications:
     charm: {{ main_charm }}
     num_units: 1
     series: {{ s }}
-    constraints: arch=amd64
+    constraints: arch=amd64 virt-type=virtual-machine
   {% endfor %}
