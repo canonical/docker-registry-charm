@@ -11,8 +11,8 @@ tags:
 provides:
   docker-registry:
     interface: docker-registry
-  nrpe-external-master:
-    interface: nrpe-external-master
+  nrpe-external-master:              # wokeignore:rule=master
+    interface: nrpe-external-master  # wokeignore:rule=master
     scope: container
   website:
     interface: http
