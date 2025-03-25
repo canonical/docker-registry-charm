@@ -29,10 +29,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - id: charmcraft
+        run: echo "channel=$(cat .charmcraft-channel)" >> $GITHUB_OUTPUT
       - name: Setup operator environment
         uses: charmed-kubernetes/actions-operator@main
         with:
           provider: lxd
           juju-channel: 3/stable
+          charmcraft-channel: ${{ steps.charmcraft.outputs.channel }}
       - name: Run integration test
         run: tox -e integration
