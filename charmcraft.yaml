@@ -1,0 +1,28 @@
+type: charm
+
+bases:
+  - build-on:
+      - name: ubuntu
+        channel: "22.04"
+        architectures: ["amd64"]
+    run-on:
+      - name: ubuntu
+        channel: "22.04"
+        architectures: ["amd64", "arm64", "s390x"]
+      - name: ubuntu
+        channel: "24.04"
+        architectures: ["amd64", "arm64", "s390x"]
+parts:
+  charm:
+    source: src
+    plugin: reactive
+    reactive-charm-build-arguments:
+    - --layer-index
+    - https://raw.githubusercontent.com/charmed-kubernetes/layer-index/main/
+    - --debug
+    - --force
+    build-snaps:
+    - charm/3.x/stable
+    build-environment:
+    - CHARM_INTERFACES_DIR: $CRAFT_PROJECT_DIR/interfaces/
+    - CHARM_LAYERS_DIR: $CRAFT_PROJECT_DIR/layers/
