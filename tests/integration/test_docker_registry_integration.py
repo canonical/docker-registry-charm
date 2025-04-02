@@ -8,7 +8,7 @@ log = logging.getLogger(__name__)
 
 
 @pytest.mark.abort_on_fail
-async def test_build_and_deploy(ops_test : OpsTest, series):
+async def test_build_and_deploy(ops_test: OpsTest, series):
     """Build and deploy docker-registry in bundle"""
     charm = next(Path.cwd().glob("docker-registry*.charm"), None)
     if not charm:
