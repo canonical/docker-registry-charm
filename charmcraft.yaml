@@ -1,0 +1,50 @@
+type: charm
+
+bases:
+  - build-on:
+      - name: ubuntu
+        channel: "22.04"
+        architectures: ["amd64"]
+    run-on:
+      - name: ubuntu
+        channel: "22.04"
+        architectures: ["amd64", "arm64", "s390x"]
+      - name: ubuntu
+        channel: "24.04"
+        architectures: ["amd64", "arm64", "s390x"]
+parts:
+  charm:
+    source: src
+    plugin: reactive
+    override-build: |
+      rm -rf $CRAFT_STAGE/tmp
+      mkdir -p $CRAFT_STAGE/tmp/interfaces
+      mkdir -p $CRAFT_STAGE/tmp/layers
+      curl -o $CRAFT_STAGE/tmp/layers.yaml https://raw.githubusercontent.com/charmed-kubernetes/jenkins/refs/heads/main/jobs/includes/charm-layer-list.inc
+      for layer in $(yq '.[] | keys | .[]' $CRAFT_STAGE/tmp/layers.yaml); do
+        if [[ ! "$layer" =~ ^(interface:|layer:) ]]; then continue; fi
+        echo "Pulling layer: ${layer}"
+        charm pull-source \
+          --layer-index ${LAYER_INDEX} \
+          --branch ${RELEASE_BRANCH} \
+          ${layer} &
+      done
+      wait
+      craftctl default
+      git -C $CRAFT_PROJECT_DIR rev-parse --short HEAD > version
+    reactive-charm-build-arguments:
+    - --layer-index
+    - 'http://localhost'  # Fake layer index to avoid network calls
+    - --debug
+    - --force
+    build-packages:
+    - curl
+    - python3-dev
+    build-snaps:
+    - charm/3.x/stable
+    - yq
+    build-environment:
+    - CHARM_LAYERS_DIR: $CRAFT_STAGE/tmp/layers/
+    - CHARM_INTERFACES_DIR: $CRAFT_STAGE/tmp/interfaces/
+    - LAYER_INDEX: https://raw.githubusercontent.com/charmed-kubernetes/layer-index/main/
+    - RELEASE_BRANCH: main
