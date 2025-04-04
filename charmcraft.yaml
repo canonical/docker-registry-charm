@@ -17,28 +17,16 @@ parts:
     source: src
     plugin: reactive
     override-build: |
-      rm -rf $CRAFT_STAGE/tmp
-      mkdir -p $CRAFT_STAGE/tmp/interfaces
-      mkdir -p $CRAFT_STAGE/tmp/layers
-      curl -o $CRAFT_STAGE/tmp/layers.yaml https://raw.githubusercontent.com/charmed-kubernetes/jenkins/refs/heads/main/jobs/includes/charm-layer-list.inc
-      for layer in $(yq '.[] | keys | .[]' $CRAFT_STAGE/tmp/layers.yaml); do
-        if [[ ! "$layer" =~ ^(interface:|layer:) ]]; then continue; fi
-        echo "Pulling layer: ${layer}"
-        charm pull-source \
-          --layer-index ${LAYER_INDEX} \
-          --branch ${RELEASE_BRANCH} \
-          ${layer} &
-      done
-      wait
+      ./download_layers.sh
       craftctl default
       git -C $CRAFT_PROJECT_DIR rev-parse --short HEAD > version
     reactive-charm-build-arguments:
     - --layer-index
-    - 'http://localhost'  # Fake layer index to avoid network calls
+    - 'http://localhost/'  # Fake layer index to force a local build
     - --debug
     - --force
     build-packages:
-    - curl
+    - wget
     - python3-dev
     build-snaps:
     - charm/3.x/stable
