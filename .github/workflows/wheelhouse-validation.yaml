@@ -4,6 +4,6 @@ on:
 
 jobs:
   validate-wheelhouse:
-    uses: charmed-kubernetes/workflows/.github/workflows/validate-wheelhouse.yaml@main
+    uses: charmed-kubernetes/workflows/.github/workflows/validate-wheelhouse.yaml@6ee58c37d404effad4598ce7b523dbaf0cb99285 # main
     with:
       python: "['3.10', '3.12']"
